@@ -1,16 +1,18 @@
+import type { ProfileSlot } from '../../shared/contracts/profile';
 import { hasSubscriptionAccess } from '../lib/auth';
-import { readCurrentProfile } from '../lib/storage';
+import { readProfile } from '../lib/storage';
 
 const notFound = (): Response => new Response('Not Found', { status: 404 });
 
 export const handleSubscription = async (
   request: Request,
   env: Env,
+  slot: ProfileSlot,
   target: 'surge' | 'quanx',
 ): Promise<Response> => {
   const url = new URL(request.url);
-  if (!hasSubscriptionAccess(url, env)) return notFound();
-  const current = await readCurrentProfile(env.PROFILE_STORE);
+  if (!(await hasSubscriptionAccess(url, env))) return notFound();
+  const current = await readProfile(env.PROFILE_STORE, slot);
   if (!current) return notFound();
 
   const etag = `"${current.metadata.digests[target]}"`;

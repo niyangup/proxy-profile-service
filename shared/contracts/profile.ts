@@ -1,4 +1,10 @@
 export type PublishedSourceFormat = 'clash' | 'surge';
+export type ProfileSlot = 'primary' | 'backup';
+
+export interface ProfileSlots<T> {
+  readonly primary: T;
+  readonly backup: T;
+}
 
 export interface PublishStats {
   readonly proxies: number;
@@ -9,6 +15,7 @@ export interface PublishStats {
 }
 
 export interface PublishRequest {
+  readonly slot: ProfileSlot;
   readonly sourceName: string;
   readonly sourceFormat: PublishedSourceFormat;
   readonly source: string;
@@ -42,13 +49,15 @@ export interface SubscriptionUrls {
 }
 
 export interface PublishResponse {
+  readonly publishedSlot: ProfileSlot;
   readonly metadata: PublishedProfileMetadata;
-  readonly urls: SubscriptionUrls;
+  readonly profiles: ProfileSlots<PublishedProfileMetadata | null>;
+  readonly urls: ProfileSlots<SubscriptionUrls>;
 }
 
 export interface StatusResponse {
-  readonly current: PublishedProfileMetadata | null;
-  readonly urls: SubscriptionUrls;
+  readonly profiles: ProfileSlots<PublishedProfileMetadata | null>;
+  readonly urls: ProfileSlots<SubscriptionUrls>;
 }
 
 export interface ApiErrorResponse {

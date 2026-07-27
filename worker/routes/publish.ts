@@ -1,7 +1,12 @@
 import type { PublishResponse, PublishedProfileMetadata } from '../../shared/contracts/profile';
 import { hasAdminAccess } from '../lib/auth';
 import { apiError, jsonResponse, readTextWithLimit } from '../lib/http';
-import { createDigests, subscriptionUrls, writeCurrentProfile } from '../lib/storage';
+import {
+  allSubscriptionUrls,
+  createDigests,
+  readProfileMetadata,
+  writeProfile,
+} from '../lib/storage';
 import { validatePublishRequest } from '../lib/validation';
 
 const MAX_REQUEST_BYTES = 10 * 1024 * 1024;
@@ -18,7 +23,9 @@ const errorResponse = (error: unknown): Response => {
 };
 
 export const handlePublish = async (request: Request, env: Env): Promise<Response> => {
-  if (!hasAdminAccess(request, env)) return apiError('UNAUTHORIZED', '管理令牌无效', 401);
+  if (!(await hasAdminAccess(request, env))) {
+    return apiError('UNAUTHORIZED', '管理令牌无效', 401);
+  }
   if (!request.headers.get('Content-Type')?.toLowerCase().includes('application/json')) {
     return apiError('UNSUPPORTED_MEDIA_TYPE', '仅接受 application/json', 415);
   }
@@ -32,7 +39,11 @@ export const handlePublish = async (request: Request, env: Env): Promise<Respons
       throw new Error('INVALID_JSON');
     }
     const payload = validatePublishRequest(parsed);
-    const digests = await createDigests(payload);
+    const otherSlot = payload.slot === 'primary' ? 'backup' : 'primary';
+    const [digests, otherMetadata] = await Promise.all([
+      createDigests(payload),
+      readProfileMetadata(env.PROFILE_STORE, otherSlot),
+    ]);
     const publishedAt = new Date().toISOString();
     const version = `${publishedAt.replaceAll(/[:.]/g, '-')}-${digests.source.slice(0, 12)}`;
     const metadata: PublishedProfileMetadata = {
@@ -45,16 +56,22 @@ export const handlePublish = async (request: Request, env: Env): Promise<Respons
       stats: payload.stats,
       digests,
     };
-    await writeCurrentProfile(env.PROFILE_STORE, {
+    await writeProfile(env.PROFILE_STORE, payload.slot, {
       metadata,
       source: payload.source,
       surge: payload.surge,
       quanx: payload.quanx,
     });
 
+    const profiles =
+      payload.slot === 'primary'
+        ? { primary: metadata, backup: otherMetadata }
+        : { primary: otherMetadata, backup: metadata };
     const response: PublishResponse = {
+      publishedSlot: payload.slot,
       metadata,
-      urls: subscriptionUrls(request.url, env.SUBSCRIPTION_TOKEN),
+      profiles,
+      urls: allSubscriptionUrls(request.url, env.SUBSCRIPTION_TOKEN),
     };
     return jsonResponse(response, 201);
   } catch (error) {

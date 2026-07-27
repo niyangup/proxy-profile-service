@@ -1,4 +1,6 @@
 import type {
+  ProfileSlot,
+  ProfileSlots,
   ProfileDigests,
   PublishedProfileMetadata,
   PublishRequest,
@@ -7,7 +9,10 @@ import type {
 } from '../../shared/contracts/profile';
 
 export const CURRENT_KEY = 'profile:current';
+export const BACKUP_KEY = 'profile:backup';
 const encoder = new TextEncoder();
+
+const profileKey = (slot: ProfileSlot): string => (slot === 'primary' ? CURRENT_KEY : BACKUP_KEY);
 
 export interface StoredProfile {
   readonly metadata: PublishedProfileMetadata;
@@ -31,27 +36,54 @@ export const createDigests = async (request: PublishRequest): Promise<ProfileDig
   return { source, surge, quanx };
 };
 
-export const readCurrentProfile = (store: KVNamespace): Promise<StoredProfile | null> =>
-  store.get<StoredProfile>(CURRENT_KEY, 'json');
+export const readProfile = (store: KVNamespace, slot: ProfileSlot): Promise<StoredProfile | null> =>
+  store.get<StoredProfile>(profileKey(slot), 'json');
 
-export const writeCurrentProfile = (store: KVNamespace, profile: StoredProfile): Promise<void> =>
-  store.put(CURRENT_KEY, JSON.stringify(profile));
-
-export const readCurrentMetadata = async (
+export const writeProfile = (
   store: KVNamespace,
-): Promise<PublishedProfileMetadata | null> => (await readCurrentProfile(store))?.metadata ?? null;
+  slot: ProfileSlot,
+  profile: StoredProfile,
+): Promise<void> => store.put(profileKey(slot), JSON.stringify(profile));
 
-export const subscriptionUrls = (requestUrl: string, token: string): SubscriptionUrls => {
+export const readProfileMetadata = async (
+  store: KVNamespace,
+  slot: ProfileSlot,
+): Promise<PublishedProfileMetadata | null> => (await readProfile(store, slot))?.metadata ?? null;
+
+export const readAllMetadata = async (
+  store: KVNamespace,
+): Promise<ProfileSlots<PublishedProfileMetadata | null>> => {
+  const [primary, backup] = await Promise.all([
+    readProfileMetadata(store, 'primary'),
+    readProfileMetadata(store, 'backup'),
+  ]);
+  return { primary, backup };
+};
+
+export const subscriptionUrls = (
+  requestUrl: string,
+  token: string,
+  slot: ProfileSlot,
+): SubscriptionUrls => {
   const origin = new URL(requestUrl).origin;
   const query = new URLSearchParams({ p: token });
+  const prefix = slot === 'primary' ? '/sub' : '/sub/backup';
   return {
-    surge: `${origin}/sub/surge.conf?${query}`,
-    quanx: `${origin}/sub/quanx.conf?${query}`,
+    surge: `${origin}${prefix}/surge.conf?${query}`,
+    quanx: `${origin}${prefix}/quanx.conf?${query}`,
   };
 };
+
+export const allSubscriptionUrls = (
+  requestUrl: string,
+  token: string,
+): ProfileSlots<SubscriptionUrls> => ({
+  primary: subscriptionUrls(requestUrl, token, 'primary'),
+  backup: subscriptionUrls(requestUrl, token, 'backup'),
+});
 
 export const statusPayload = (
   requestUrl: string,
   token: string,
-  current: PublishedProfileMetadata | null,
-): StatusResponse => ({ current, urls: subscriptionUrls(requestUrl, token) });
+  profiles: ProfileSlots<PublishedProfileMetadata | null>,
+): StatusResponse => ({ profiles, urls: allSubscriptionUrls(requestUrl, token) });

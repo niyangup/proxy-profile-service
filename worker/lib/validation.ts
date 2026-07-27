@@ -18,9 +18,10 @@ const isStringArray = (value: unknown): value is string[] =>
 
 export const validatePublishRequest = (value: unknown): PublishRequest => {
   if (!isRecord(value)) throw new Error('INVALID_PAYLOAD');
-  const { sourceName, sourceFormat, source, surge, quanx, warnings, ignoredSections, stats } =
+  const { slot, sourceName, sourceFormat, source, surge, quanx, warnings, ignoredSections, stats } =
     value;
   if (
+    (slot !== 'primary' && slot !== 'backup') ||
     typeof sourceName !== 'string' ||
     !sourceName.trim() ||
     (sourceFormat !== 'clash' && sourceFormat !== 'surge') ||
@@ -51,6 +52,7 @@ export const validatePublishRequest = (value: unknown): PublishRequest => {
     throw new Error('INVALID_QUANX_OUTPUT');
   }
   return {
+    slot,
     sourceName: sourceName.trim(),
     sourceFormat,
     source,

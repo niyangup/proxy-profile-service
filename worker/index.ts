@@ -15,10 +15,16 @@ const routeRequest = async (request: Request, env: Env): Promise<Response | unde
     return handlePublish(request, env);
   }
   if (request.method === 'GET' && url.pathname === '/sub/surge.conf') {
-    return handleSubscription(request, env, 'surge');
+    return handleSubscription(request, env, 'primary', 'surge');
   }
   if (request.method === 'GET' && url.pathname === '/sub/quanx.conf') {
-    return handleSubscription(request, env, 'quanx');
+    return handleSubscription(request, env, 'primary', 'quanx');
+  }
+  if (request.method === 'GET' && url.pathname === '/sub/backup/surge.conf') {
+    return handleSubscription(request, env, 'backup', 'surge');
+  }
+  if (request.method === 'GET' && url.pathname === '/sub/backup/quanx.conf') {
+    return handleSubscription(request, env, 'backup', 'quanx');
   }
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/sub/')) {
     return apiError('NOT_FOUND', 'Not Found', 404);

@@ -1,6 +1,6 @@
 # Proxy Profile Service
 
-一个部署在 Cloudflare Workers 上的私有代理配置转换与分发服务。手机或电脑上传 Clash YAML / Surge CONF 后，浏览器本地完成转换，Worker 将当前产物快照保存到 Workers KV，并提供固定的 Surge 与 Quantumult X 订阅地址。
+一个部署在 Cloudflare Workers 上的私有代理配置转换与分发服务。手机或电脑分别上传主用、备用代理的 Clash YAML / Surge CONF 后，浏览器本地完成转换，Worker 将两个产物快照分别保存到 Workers KV，并提供两组固定的 Surge 与 Quantumult X 订阅地址。
 
 ## 支持范围
 
@@ -43,7 +43,7 @@ npm run deploy:dry-run
 npx wrangler login
 ```
 
-2. 使用密码管理器分别生成两个至少 32 字节的随机 Base64URL 值，并通过交互式输入设置，不要把值写进命令历史：
+2. 使用密码管理器分别生成 `ADMIN_TOKEN` 与 `SUBSCRIPTION_TOKEN`，并通过交互式输入设置，不要把值写进命令历史：
 
 ```bash
 npx wrangler secret put ADMIN_TOKEN
@@ -62,28 +62,30 @@ npm run deploy
 
 ## 使用流程
 
-1. 打开部署后的页面。
-2. 输入 `ADMIN_TOKEN`。令牌只保存在当前页面内，不写入浏览器存储。
-3. 上传最新 Clash YAML；只有没有 YAML 时才上传 Surge CONF。
-4. 查看转换统计与警告，确认后发布。
-5. 把页面返回的固定地址分别保存到 Surge 和 Quantumult X。
+1. 打开部署后的管理页面并输入 `ADMIN_TOKEN`。令牌仅保存在当前页面内存，不写入浏览器存储。
+2. 在“主用配置”上传主力代理的 Clash YAML；只有没有 YAML 时才选 Surge CONF。
+3. 在“备用配置”上传备用代理的 YAML 或 CONF。两个槽位可独立更新，不要求同时上传。
+4. 分别查看转换统计与警告，确认后发布。
+5. 把页面返回的主用、备用固定地址分别保存到 Surge 和 Quantumult X。
 
 地址形式：
 
 ```text
 https://你的域名/sub/surge.conf?p=<SUBSCRIPTION_TOKEN>
 https://你的域名/sub/quanx.conf?p=<SUBSCRIPTION_TOKEN>
+https://你的域名/sub/backup/surge.conf?p=<SUBSCRIPTION_TOKEN>
+https://你的域名/sub/backup/quanx.conf?p=<SUBSCRIPTION_TOKEN>
 ```
 
-两个地址共用随机订阅令牌。错误或缺失的 `p` 统一返回 `404`。如果地址泄露，重新设置 `SUBSCRIPTION_TOKEN` 并在两个客户端更新一次地址即可。
+四个地址共用随机订阅令牌。错误或缺失的 `p` 统一返回 `404`。如果地址泄露，重新设置 `SUBSCRIPTION_TOKEN` 并在客户端更新地址即可。
 
 ## 数据与安全
 
 - 配置解析和转换发生在浏览器；Worker 不承担大 YAML 的解析 CPU。
-- 发布接口使用 Bearer 管理令牌。
-- 原始配置、Surge 输出、Quantumult X 输出和元数据作为一个 KV 快照写入；失败写入不会替换当前快照。
+- 状态和发布接口使用 Bearer `ADMIN_TOKEN`；前端不持久化该令牌。
+- 主用和备用分别以一个完整 KV 快照保存原始配置、Surge 输出、Quantumult X 输出和元数据；更新一方不会覆盖另一方。
 - KV 最终一致：不同地区最多可能短暂读取到上一版完整快照，但不会读到缺文件的半发布版本。
-- 为控制免费额度，服务只保留最新快照，不保留历史版本。
+- 为控制免费额度，每个槽位只保留最新快照，不保留历史版本。
 - 订阅响应禁止公共缓存和搜索引擎索引。
 - 页面不加载第三方脚本、字体或统计资源。
 - Worker 应用日志不记录完整 URL、查询参数、令牌或配置正文。

@@ -12,11 +12,13 @@
 
 项目名称：`Proxy Profile Service`。
 
-目标：用户每次从供应方拿到最新 Clash YAML 或 Surge CONF 后，可以在手机或电脑浏览器上传，服务生成并长期提供两个固定远程地址：
+目标：用户每次从主用、备用两个供应方拿到最新 Clash YAML 或 Surge CONF 后，可以在手机或电脑浏览器各选一个文件上传，服务生成并长期提供两组固定远程地址：
 
 ```text
 https://<domain>/sub/surge.conf?p=<SUBSCRIPTION_TOKEN>
 https://<domain>/sub/quanx.conf?p=<SUBSCRIPTION_TOKEN>
+https://<domain>/sub/backup/surge.conf?p=<SUBSCRIPTION_TOKEN>
+https://<domain>/sub/backup/quanx.conf?p=<SUBSCRIPTION_TOKEN>
 ```
 
 不要误改 `/Users/niyangup/WorkSpace/WebStormProjects/img-list`。后续实现、测试、部署和文档维护都应在 `proxy-profile-service` 中完成。
@@ -27,9 +29,10 @@ https://<domain>/sub/quanx.conf?p=<SUBSCRIPTION_TOKEN>
 - 上传页面应适合手机浏览器使用。
 - 输入支持 Clash YAML 和 Surge CONF，并按内容自动识别，而不是只看扩展名。
 - 浏览器负责解析和转换；Worker 只负责鉴权、轻量复核、存储与分发。
-- 输出是 Surge 和 Quantumult X 两个固定地址；每次上传新文件后地址不能变化。
-- 上传由 `ADMIN_TOKEN` 保护。
-- 两个订阅地址共用一个 `SUBSCRIPTION_TOKEN`，通过查询参数 `p` 传递。
+- 页面提供主用和备用两个独立上传槽；每个供应方的 YAML/CONF 二选一，不是同时上传四个文件。
+- 原有 Surge 和 Quantumult X 地址继续代表主用；备用使用 `/sub/backup/*`，四个地址更新配置后均不变化。
+- 页面显示 `ADMIN_TOKEN` 输入框，令牌仅保存在 React 内存中；状态和发布请求使用 Bearer 鉴权。
+- 四个订阅地址共用一个 `SUBSCRIPTION_TOKEN`，通过查询参数 `p` 传递。
 - `p` 的安全设计要求是至少 32 字节密码学随机数据的 Base64URL 值。用户本次明确要求生产环境暂时使用相同的低熵管理/订阅凭据；实际值不得写入文档，且在分享服务或订阅地址前应尽快轮换为两个不同随机值。
 - 服务不使用第三方订阅转换接口，不把节点凭据发送给无关第三方。
 - 生产 KV、Secrets 和部署只能在用户明确要求后执行。现有 KV namespace 已通过 ID 固定在 `wrangler.jsonc` 中，不需要 R2。
@@ -62,23 +65,23 @@ https://<domain>/sub/quanx.conf?p=<SUBSCRIPTION_TOKEN>
 
 ```mermaid
 flowchart LR
-  A[Clash YAML] --> C[浏览器输入适配器]
-  B[Surge CONF] --> C
-  C --> D[统一配置模型]
-  D --> E[Surge 渲染器]
-  D --> F[Quantumult X 渲染器]
-  E --> G[POST /api/publish]
-  F --> G
-  G --> H[KV 当前完整快照]
-  H --> J[固定 Surge 地址]
-  H --> K[固定 QX 地址]
+  A[主用 YAML 或 CONF] --> C[浏览器转换器]
+  B[备用 YAML 或 CONF] --> C
+  C --> D[主用完整产物]
+  C --> E[备用完整产物]
+  D --> F[POST /api/publish]
+  E --> F
+  F --> G[KV 主用快照]
+  F --> H[KV 备用快照]
+  G --> I[主用 Surge/QX 地址]
+  H --> J[备用 Surge/QX 地址]
 ```
 
 职责边界：
 
-- 浏览器：不可信文本解析、格式检测、限制校验、统一模型、双目标渲染、警告预览。
-- Worker：令牌校验、请求大小限制、产物结构复核、SHA-256、KV 快照发布、订阅读取。
-- KV：用一个 `profile:current` 值保存元数据、原文和两份输出；失败写入不会替换当前快照，跨地区最多短暂读到上一版完整快照。
+- 浏览器：两个独立槽的不可信文本解析、格式检测、限制校验、统一模型、双目标渲染和警告预览；管理令牌只保存在当前组件状态。
+- Worker：Bearer `ADMIN_TOKEN` 校验、请求大小限制、产物结构复核、SHA-256、按槽 KV 快照发布、订阅读取。
+- KV：`profile:current` 保存主用，`profile:backup` 保存备用；失败写入不会替换对应槽，跨地区最多短暂读到该槽的上一版完整快照。
 
 详细架构见 `doc/architecture/overview.md`。
 
@@ -101,8 +104,8 @@ flowchart LR
 
 核心文件：`src/features/uploader/ProfileUploader.tsx`
 
-- 管理令牌只保存在 React 本地状态，不进入 `localStorage`。
-- 选择文件后在浏览器转换并显示节点、策略、规则、跳过项和警告。
+- 页面提供管理令牌输入，令牌不进入 `localStorage` 或其他持久化存储。
+- 主用、备用各有一个文件选择与独立发布按钮；选择文件后在浏览器转换并显示节点、策略、规则、跳过项和警告。
 - 移动端布局已实现。
 - 页面不加载第三方脚本、字体或统计资源。
 
@@ -111,17 +114,19 @@ flowchart LR
 入口：`worker/index.ts`
 
 - `GET /api/health`：公开健康检查。
-- `GET /api/status`：需要 Bearer `ADMIN_TOKEN`。
-- `POST /api/publish`：需要 Bearer `ADMIN_TOKEN`。
+- `GET /api/status`：需要 Bearer `ADMIN_TOKEN`，返回两个槽的状态。
+- `POST /api/publish`：需要相同管理权限，只替换请求指定的 `primary` 或 `backup`。
 - `GET /sub/surge.conf?p=...`：需要正确 `SUBSCRIPTION_TOKEN`。
 - `GET /sub/quanx.conf?p=...`：需要正确 `SUBSCRIPTION_TOKEN`。
+- `GET /sub/backup/surge.conf?p=...`：备用 Surge。
+- `GET /sub/backup/quanx.conf?p=...`：备用 Quantumult X。
 
 关键模块：
 
-- `worker/lib/auth.ts`：使用 `crypto.subtle.timingSafeEqual` 比较令牌。
+- `worker/lib/auth.ts`：Secret 先做 SHA-256，再使用 `crypto.subtle.timingSafeEqual` 比较 Bearer/查询令牌。
 - `worker/lib/validation.ts`：限制与产物必要段复核。
-- `worker/lib/storage.ts`：摘要、KV 当前快照读写和订阅地址。
-- `worker/routes/publish.ts`：将完整产物作为一个 KV 快照写入。
+- `worker/lib/storage.ts`：摘要、主用/备用 KV 快照读写和四个订阅地址。
+- `worker/routes/publish.ts`：将完整产物写入请求指定的槽，另一个槽不变。
 - `worker/routes/subscription.ts`：读取 KV 快照目标内容、支持基于 SHA-256 的 `ETag`、禁止公共缓存和索引。
 
 缺失或错误的订阅令牌统一返回 `404`，不暴露地址是否存在。
@@ -134,11 +139,11 @@ flowchart LR
 - `SUBSCRIPTION_TOKEN` 是凭据。改成查询参数只是 URL 形态变化，安全性仍依赖随机强度。
 - 当前生产 `ADMIN_TOKEN` 与 `SUBSCRIPTION_TOKEN` 已配置，但按用户明确要求使用了相同的低熵值。这是已知安全例外，不应把当前服务或订阅链接公开分享；轮换时必须改成两个不同的随机值。
 - Surge Script、MITM、Rewrite、Map Local、SSID 和远程 `RULE-SET` 不应假装兼容 QX。
-- KV 只保留最新完整快照，不保留历史版本；这是为了适配免费额度并避免多键最终一致造成半发布状态。
+- KV 的主用、备用各只保留最新完整快照，不保留历史版本；这是为了适配免费额度并避免单个配置出现半发布状态。
 
 ## 7. 已完成验证
 
-最近完整验证全部通过：
+当前主用/备用改动的完整本地验证全部通过：
 
 ```text
 npm run format
@@ -147,16 +152,15 @@ npm run typecheck
 npm test
 npm run build
 npm run deploy:dry-run
-npm run deploy
 ```
 
 测试基线：
 
-- 前端：2 个测试文件，共 5 个测试通过。
-- Worker：1 个测试文件，共 3 个测试通过。
+- 前端：2 个测试文件，共 6 个测试通过，覆盖双入口、管理令牌 UI、Bearer 请求和备用槽发布。
+- Worker：1 个测试文件，共 4 个测试通过，覆盖主用旧 URL 兼容、备用独立存储、双槽状态和鉴权拒绝。
 - 真实 WestData YAML 和 CONF 已进行只读烟雾转换，只输出统计与警告，没有输出凭据或派生产物。
-- Wrangler dry-run 已确认 Worker Static Assets 和 `PROFILE_STORE` KV binding 能正确打包。
-- 生产部署已成功；部署后 `/` 与 `/api/health` 均实测返回 `200`。
+- Wrangler dry-run 已确认 Bearer 鉴权 Worker bundle、Static Assets 和 `PROFILE_STORE` KV binding 能正确打包。
+- 上一版单槽生产部署成功且 `/`、`/api/health` 实测返回 `200`；当前主用/备用版本尚未部署。
 
 ## 8. 当前部署状态
 
@@ -171,7 +175,8 @@ npm run deploy
 
 尚未进行：
 
-- 用真实 YAML 发布第一份生产快照。
+- 部署当前主用/备用版本。
+- 用真实 YAML 分别发布第一份主用、备用生产快照。
 - 在真实 Surge 和 Quantumult X 中导入并验证两个远程地址。
 
 首次部署步骤记录在 `README.md`。除非用户明确要求部署，否则只能执行 `npm run deploy:dry-run`，不能运行 `npm run deploy`。
@@ -204,8 +209,8 @@ npm run deploy
 
 ## 11. 下一步
 
-当前 KV 实现、生产 Secrets 和首次部署均已完成。最自然的下一步是：
+当前主用/备用代码已在本地实现，生产仍是上一版。最自然的下一步是：
 
-1. 将两个当前低熵且相同的生产 Secret 轮换成两个不同的密码学随机值。
-2. 用最新 Clash YAML 发布首个生产版本。
-3. 分别在 Mac Surge 和 iPhone Quantumult X 中验证固定地址、刷新和分流行为。
+1. 将当前低熵且相同的生产 Secret 轮换成两个不同的密码学随机值。
+2. 部署后用最新 Clash YAML 分别发布主用、备用版本。
+3. 分别在 Mac Surge 和 iPhone Quantumult X 中验证四个固定地址、刷新和分流行为。
