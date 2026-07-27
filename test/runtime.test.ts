@@ -11,7 +11,7 @@ const bundleParser = async (): Promise<string> => {
     entryPoints: ['src/resource-parser.ts'],
     format: 'iife',
     platform: 'browser',
-    target: ['es2020'],
+    target: ['es2017'],
     write: false,
   });
   const output = result.outputFiles[0];
@@ -55,20 +55,34 @@ describe('Quantumult X runtime bundle', () => {
 
   it('handles a missing $resource without throwing an undeclared-variable error', async () => {
     const bundle = await bundleParser();
-    let content = 'not-called';
+    let errorMessage = '';
     let notification = '';
 
     expect(() =>
       vm.runInNewContext(bundle, {
-        $done: (result: { content: string }) => {
-          content = result.content;
+        $done: (result: { error?: string }) => {
+          errorMessage = result.error ?? '';
         },
         $notify: (_title: string, _subtitle: string, message: string) => {
           notification = message;
         },
       }),
     ).not.toThrow();
-    expect(content).toBe('');
+    expect(errorMessage).toContain('配置内容为空');
     expect(notification).toContain('配置内容为空');
+  });
+
+  it('reports an actionable error for a non-server resource type', async () => {
+    const bundle = await bundleParser();
+    let errorMessage = '';
+
+    vm.runInNewContext(bundle, {
+      $done: (result: { error?: string }) => {
+        errorMessage = result.error ?? '';
+      },
+      $resource: { content: 'proxies: []', type: 'filter' },
+    });
+
+    expect(errorMessage).toContain('资源类型设置为 server');
   });
 });

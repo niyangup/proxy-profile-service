@@ -27,8 +27,8 @@ const transportOptions = (node: ProxyNode): Array<string | undefined> => {
 const finish = (node: ProxyNode, fields: Array<string | undefined>): string =>
   [
     ...fields,
-    booleanOption('fast-open', node.fastOpen),
-    booleanOption('udp-relay', node.udp),
+    booleanOption('fast-open', node.fastOpen ?? false),
+    booleanOption('udp-relay', node.udp ?? false),
     `tag=${node.name}`,
   ]
     .filter((field): field is string => Boolean(field))
@@ -73,7 +73,12 @@ export const renderNode = (node: ProxyNode): string => {
     const transport =
       node.network === 'ws' ? transportOptions(node) : ['over-tls=true', ...tlsOptions(node)];
     if (node.network === 'ws') transport.push(...tlsOptions(node));
-    return `trojan=${finish(node, [endpoint, `password=${node.password}`, ...transport])}`;
+    return `trojan=${finish(node, [
+      endpoint,
+      `password=${node.password}`,
+      ...transport,
+      'tls13=false',
+    ])}`;
   }
 
   if (node.type === 'vmess' || node.type === 'vless') {

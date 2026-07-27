@@ -15,5 +15,5 @@ await build({
   minify: true,
   outfile: 'dist/resource-parser.js',
   platform: 'browser',
-  target: ['es2020'],
+  target: ['es2017'],
 });

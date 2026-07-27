@@ -38,6 +38,8 @@ describe('resource conversion', () => {
     expect(result.content).toContain('trojan=origin.example.com:443');
     expect(result.content).toContain('tls-host=edge.example.com');
     expect(result.content).toContain('tls-verification=false');
+    expect(result.content).toContain('tls13=false');
+    expect(result.content).toContain('fast-open=true');
     expect(result.content).toContain('udp-relay=true');
   });
 
