@@ -1,0 +1,49 @@
+{
+  "name": "proxy-profile-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run cf-typegen && npm run format:check && npm run lint && npm run typecheck && vite build",
+    "preview": "vite preview",
+    "format": "oxfmt --write",
+    "format:check": "oxfmt --check",
+    "lint": "oxlint --deny-warnings",
+    "lint:fix": "oxlint --fix",
+    "typecheck": "tsc -b",
+    "test": "npm run test:frontend && npm run test:worker",
+    "test:frontend": "vitest run --config vitest.frontend.config.ts",
+    "test:worker": "vitest run --config vitest.worker.config.ts",
+    "cf-typegen": "wrangler types worker-configuration.d.ts",
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:dry-run": "npm run build && wrangler deploy --dry-run"
+  },
+  "dependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.47.0",
+    "@cloudflare/vitest-pool-workers": "^0.18.8",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "@vitest/coverage-v8": "^4.1.10",
+    "jsdom": "^29.1.1",
+    "oxfmt": "^0.60.0",
+    "oxlint": "^1.75.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.114.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

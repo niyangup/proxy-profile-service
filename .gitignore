@@ -1,0 +1,22 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+node_modules
+dist
+coverage
+*.tsbuildinfo
+.worker-configuration.d.ts.tmp
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+!.env.example
+.wrangler
+
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.local
