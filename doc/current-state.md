@@ -32,20 +32,19 @@ Performed locally:
 - `npm test`: 6 frontend tests and 4 Worker tests passed, including independent primary/backup publication and preservation of the original primary URLs.
 - `npm run build`: formatting, lint, type checking, Worker bundle, and client bundle passed.
 - `npm run deploy:dry-run`: the Bearer-authenticated Worker bundle, Static Assets, and existing `PROFILE_STORE` binding packaged successfully without publishing.
-- The previous single-slot production deployment and its `/` plus `/api/health` HTTP smoke test succeeded; the current primary/backup version has not been deployed.
+- The primary/backup version was deployed successfully with Wrangler. Production `/` references the new client assets, `/api/health` returns `200`, and unauthenticated `/api/status` returns `401`.
 - Real-file read-only smoke conversion:
   - `westData2.yaml`: 61 usable proxies, 21 groups, 4232 rules, 32 QX-inapplicable process rules, 2 information nodes removed.
   - `WestData-expanded.conf`: 61 usable proxies, 21 groups, 9 portable local rules, 2 QX-inapplicable process rules, 2 information nodes removed; Surge-only remote rules and sections were reported.
 
 Not yet performed:
 
-- Deploying the primary/backup version.
 - Publishing the first real primary and backup profiles to production.
 - Post-deployment testing in Surge and Quantumult X.
 
 ## Deployment state
 
-Production is still running the last deployed single-slot version at `https://proxy-profile-service.niyangup.workers.dev` using the pinned `proxy-profile-service-profile-store` KV namespace. `ADMIN_TOKEN` and `SUBSCRIPTION_TOKEN` are already present and are the only required production Secrets. No R2 or R2 billing setup is required.
+Production is running the primary/backup version at `https://proxy-profile-service.niyangup.workers.dev` using the pinned `proxy-profile-service-profile-store` KV namespace. Version `d7511cb4-cf7b-4105-b2c9-3a8043ad913b` was deployed directly with Wrangler after the Git-connected Workers Build for commit `9b5ab49` failed without exposing its detailed log through GitHub. `ADMIN_TOKEN` and `SUBSCRIPTION_TOKEN` are present and are the only required production Secrets. No R2 or R2 billing setup is required.
 
 ## Known constraints
 

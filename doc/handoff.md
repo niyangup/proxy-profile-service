@@ -160,7 +160,7 @@ npm run deploy:dry-run
 - Worker：1 个测试文件，共 4 个测试通过，覆盖主用旧 URL 兼容、备用独立存储、双槽状态和鉴权拒绝。
 - 真实 WestData YAML 和 CONF 已进行只读烟雾转换，只输出统计与警告，没有输出凭据或派生产物。
 - Wrangler dry-run 已确认 Bearer 鉴权 Worker bundle、Static Assets 和 `PROFILE_STORE` KV binding 能正确打包。
-- 上一版单槽生产部署成功且 `/`、`/api/health` 实测返回 `200`；当前主用/备用版本尚未部署。
+- 当前主用/备用版本已通过 Wrangler 部署；线上 `/` 引用新静态资源，`/api/health` 返回 `200`，未带令牌访问 `/api/status` 返回 `401`。
 
 ## 8. 当前部署状态
 
@@ -172,10 +172,10 @@ npm run deploy:dry-run
 - 生产 `ADMIN_TOKEN` 与 `SUBSCRIPTION_TOKEN` 已作为 Workers Secrets 配置，值不进入 Git 或文档。
 - `public/_headers` 的路径块语法已修正，避免 Cloudflare 报 `Invalid _headers configuration`。
 - KV 版本 Worker 已成功部署，地址为 `https://proxy-profile-service.niyangup.workers.dev`。
+- 主用/备用版本提交 `9b5ab49` 已推送；Git 连接的 Workers Build 失败且 GitHub 未提供详细日志，随后已通过 Wrangler 直接部署版本 `d7511cb4-cf7b-4105-b2c9-3a8043ad913b`。
 
 尚未进行：
 
-- 部署当前主用/备用版本。
 - 用真实 YAML 分别发布第一份主用、备用生产快照。
 - 在真实 Surge 和 Quantumult X 中导入并验证两个远程地址。
 
@@ -209,8 +209,8 @@ npm run deploy:dry-run
 
 ## 11. 下一步
 
-当前主用/备用代码已在本地实现，生产仍是上一版。最自然的下一步是：
+当前主用/备用代码和 Bearer 管理令牌 UI 已在生产运行。最自然的下一步是：
 
 1. 将当前低熵且相同的生产 Secret 轮换成两个不同的密码学随机值。
-2. 部署后用最新 Clash YAML 分别发布主用、备用版本。
+2. 用最新 Clash YAML 分别发布主用、备用版本。
 3. 分别在 Mac Surge 和 iPhone Quantumult X 中验证四个固定地址、刷新和分流行为。
