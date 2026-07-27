@@ -157,11 +157,20 @@ npm run deploy:dry-run
 
 ## 8. 当前部署状态
 
-尚未进行：
+已完成：
+
+- R2 已从代码和 `wrangler.jsonc` 移除，提交 `10ea3dc` 已推送到 GitHub `main`。
+- Cloudflare 已自动创建免费 KV namespace `proxy-profile-service-profile-store`。
+
+当前阻塞：
 
 - 配置生产 `ADMIN_TOKEN`。
 - 配置生产 `SUBSCRIPTION_TOKEN`。
-- 实际部署 Worker。
+- 构建 `554b0793-171a-4a70-a8cf-8e4012f5b625` 因上述两个必需 Secret 尚未设置而未能完成部署。
+
+尚未进行：
+
+- 成功部署 KV 版本 Worker。
 - 在真实 Surge 和 Quantumult X 中导入并验证两个远程地址。
 
 首次部署步骤记录在 `README.md`。除非用户明确要求部署，否则只能执行 `npm run deploy:dry-run`，不能运行 `npm run deploy`。
@@ -194,12 +203,11 @@ npm run deploy:dry-run
 
 ## 11. 下一步
 
-当前实现已经完成且 dry-run 通过。最自然的下一步是用户明确授权后：
+当前 KV 实现已经完成、推送且 dry-run 通过。最自然的下一步是用户完成生产 Secret 配置后：
 
-1. 登录 Cloudflare。
-2. 交互式设置两个生产 Secrets。
-3. 部署 Worker，由 Wrangler 自动创建 `PROFILE_STORE` KV namespace。
-4. 用最新 YAML 发布首个版本。
-5. 分别在 Mac Surge 和 iPhone Quantumult X 中验证固定地址、刷新和分流行为。
+1. 在 Cloudflare Dashboard 中以 Secret 类型设置 `ADMIN_TOKEN` 和 `SUBSCRIPTION_TOKEN`。
+2. 重试最新 GitHub 构建；KV namespace 已存在，不需要另建存储。
+3. 用最新 YAML 发布首个版本。
+4. 分别在 Mac Surge 和 iPhone Quantumult X 中验证固定地址、刷新和分流行为。
 
 如果用户没有要求部署，则当前没有必须继续修改的阻塞项。

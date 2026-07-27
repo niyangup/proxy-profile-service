@@ -39,12 +39,12 @@ Performed locally:
 Not yet performed:
 
 - Production secrets configuration.
-- Cloudflare deployment.
+- Successful deployment of the KV-backed Worker.
 - Post-deployment testing in Surge and Quantumult X.
 
 ## Deployment state
 
-The project is configured for Worker Static Assets and an automatically provisioned `PROFILE_STORE` KV namespace. Production does not require R2 or an R2 billing setup; it still requires setting `ADMIN_TOKEN` and `SUBSCRIPTION_TOKEN` as Workers Secrets.
+Commit `10ea3dc` switched production from R2 to Workers KV and was pushed to GitHub `main`. Cloudflare automatically created the free namespace `proxy-profile-service-profile-store`. Build `554b0793-171a-4a70-a8cf-8e4012f5b625` did not deploy because the Worker's Secret list is still empty; `ADMIN_TOKEN` and `SUBSCRIPTION_TOKEN` must be added before retrying. No R2 or R2 billing setup is required.
 
 ## Known constraints
 
