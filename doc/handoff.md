@@ -32,7 +32,7 @@ https://<domain>/sub/quanx.conf?p=<SUBSCRIPTION_TOKEN>
 - 两个订阅地址共用一个 `SUBSCRIPTION_TOKEN`，通过查询参数 `p` 传递。
 - `p` 必须是至少 32 字节密码学随机数据的 Base64URL 值，不能使用 `ny` 之类可猜短值。
 - 服务不使用第三方订阅转换接口，不把节点凭据发送给无关第三方。
-- 生产 R2、Secrets 和部署只能在用户明确要求后执行。
+- 生产 KV、Secrets 和部署只能在用户明确要求后执行。KV 由 Wrangler 在首次部署时自动创建，不需要 R2。
 
 ## 3. 最重要的最新结论
 
@@ -69,17 +69,16 @@ flowchart LR
   D --> F[Quantumult X 渲染器]
   E --> G[POST /api/publish]
   F --> G
-  G --> H[私有 R2 不可变版本]
-  H --> I[current.json 提交指针]
-  I --> J[固定 Surge 地址]
-  I --> K[固定 QX 地址]
+  G --> H[KV 当前完整快照]
+  H --> J[固定 Surge 地址]
+  H --> K[固定 QX 地址]
 ```
 
 职责边界：
 
 - 浏览器：不可信文本解析、格式检测、限制校验、统一模型、双目标渲染、警告预览。
-- Worker：令牌校验、请求大小限制、产物结构复核、SHA-256、R2 版本发布、订阅读取。
-- R2：先写完整不可变版本，最后更新 `current.json`；失败发布不能替换当前可用版本。
+- Worker：令牌校验、请求大小限制、产物结构复核、SHA-256、KV 快照发布、订阅读取。
+- KV：用一个 `profile:current` 值保存元数据、原文和两份输出；失败写入不会替换当前快照，跨地区最多短暂读到上一版完整快照。
 
 详细架构见 `doc/architecture/overview.md`。
 
@@ -121,9 +120,9 @@ flowchart LR
 
 - `worker/lib/auth.ts`：使用 `crypto.subtle.timingSafeEqual` 比较令牌。
 - `worker/lib/validation.ts`：限制与产物必要段复核。
-- `worker/lib/storage.ts`：摘要、R2 key 和当前版本读取。
-- `worker/routes/publish.ts`：先写版本产物，最后写 `current.json`。
-- `worker/routes/subscription.ts`：流式返回 R2 body、支持 `ETag`、禁止公共缓存和索引。
+- `worker/lib/storage.ts`：摘要、KV 当前快照读写和订阅地址。
+- `worker/routes/publish.ts`：将完整产物作为一个 KV 快照写入。
+- `worker/routes/subscription.ts`：读取 KV 快照目标内容、支持基于 SHA-256 的 `ETag`、禁止公共缓存和索引。
 
 缺失或错误的订阅令牌统一返回 `404`，不暴露地址是否存在。
 
@@ -134,7 +133,7 @@ flowchart LR
 - `.dev.vars` 已被 Git 忽略，只包含本地开发占位值；生产令牌必须通过 `wrangler secret put` 设置。
 - `SUBSCRIPTION_TOKEN` 是凭据。改成查询参数只是 URL 形态变化，安全性仍依赖随机强度。
 - Surge Script、MITM、Rewrite、Map Local、SSID 和远程 `RULE-SET` 不应假装兼容 QX。
-- R2 会保留历史不可变版本；当前个人使用量较低，尚未实现清理任务。
+- KV 只保留最新完整快照，不保留历史版本；这是为了适配免费额度并避免多键最终一致造成半发布状态。
 
 ## 7. 已完成验证
 
@@ -154,13 +153,12 @@ npm run deploy:dry-run
 - 前端：2 个测试文件，共 5 个测试通过。
 - Worker：1 个测试文件，共 3 个测试通过。
 - 真实 WestData YAML 和 CONF 已进行只读烟雾转换，只输出统计与警告，没有输出凭据或派生产物。
-- Wrangler dry-run 已确认 Worker Static Assets 和 `PROFILE_BUCKET` binding 能正确打包。
+- Wrangler dry-run 已确认 Worker Static Assets 和 `PROFILE_STORE` KV binding 能正确打包。
 
 ## 8. 当前部署状态
 
 尚未进行：
 
-- 创建生产 R2 bucket。
 - 配置生产 `ADMIN_TOKEN`。
 - 配置生产 `SUBSCRIPTION_TOKEN`。
 - 实际部署 Worker。
@@ -199,10 +197,9 @@ npm run deploy:dry-run
 当前实现已经完成且 dry-run 通过。最自然的下一步是用户明确授权后：
 
 1. 登录 Cloudflare。
-2. 创建 `proxy-profile-service` R2 bucket。
-3. 交互式设置两个生产 Secrets。
-4. 部署 Worker。
-5. 用最新 YAML 发布首个版本。
-6. 分别在 Mac Surge 和 iPhone Quantumult X 中验证固定地址、刷新和分流行为。
+2. 交互式设置两个生产 Secrets。
+3. 部署 Worker，由 Wrangler 自动创建 `PROFILE_STORE` KV namespace。
+4. 用最新 YAML 发布首个版本。
+5. 分别在 Mac Surge 和 iPhone Quantumult X 中验证固定地址、刷新和分流行为。
 
 如果用户没有要求部署，则当前没有必须继续修改的阻塞项。

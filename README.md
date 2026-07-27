@@ -1,6 +1,6 @@
 # Proxy Profile Service
 
-一个部署在 Cloudflare Workers 上的私有代理配置转换与分发服务。手机或电脑上传 Clash YAML / Surge CONF 后，浏览器本地完成转换，Worker 将产物版本化保存到私有 R2，并提供固定的 Surge 与 Quantumult X 订阅地址。
+一个部署在 Cloudflare Workers 上的私有代理配置转换与分发服务。手机或电脑上传 Clash YAML / Surge CONF 后，浏览器本地完成转换，Worker 将当前产物快照保存到 Workers KV，并提供固定的 Surge 与 Quantumult X 订阅地址。
 
 ## 支持范围
 
@@ -43,24 +43,20 @@ npm run deploy:dry-run
 npx wrangler login
 ```
 
-2. 创建配置中声明的私有 R2 bucket：
-
-```bash
-npx wrangler r2 bucket create proxy-profile-service
-```
-
-3. 使用密码管理器分别生成两个至少 32 字节的随机 Base64URL 值，并通过交互式输入设置，不要把值写进命令历史：
+2. 使用密码管理器分别生成两个至少 32 字节的随机 Base64URL 值，并通过交互式输入设置，不要把值写进命令历史：
 
 ```bash
 npx wrangler secret put ADMIN_TOKEN
 npx wrangler secret put SUBSCRIPTION_TOKEN
 ```
 
-4. 部署：
+3. 部署：
 
 ```bash
 npm run deploy
 ```
+
+Wrangler 会根据 `PROFILE_STORE` binding 自动创建免费的 KV namespace，无需预先创建 R2 或配置 R2 结算。
 
 部署后也可以在 Cloudflare Dashboard 为 Worker 绑定自定义域名。
 
@@ -85,7 +81,9 @@ https://你的域名/sub/quanx.conf?p=<SUBSCRIPTION_TOKEN>
 
 - 配置解析和转换发生在浏览器；Worker 不承担大 YAML 的解析 CPU。
 - 发布接口使用 Bearer 管理令牌。
-- R2 先写入不可变版本，全部成功后才切换 `current.json`，失败发布不会破坏当前版本。
+- 原始配置、Surge 输出、Quantumult X 输出和元数据作为一个 KV 快照写入；失败写入不会替换当前快照。
+- KV 最终一致：不同地区最多可能短暂读取到上一版完整快照，但不会读到缺文件的半发布版本。
+- 为控制免费额度，服务只保留最新快照，不保留历史版本。
 - 订阅响应禁止公共缓存和搜索引擎索引。
 - 页面不加载第三方脚本、字体或统计资源。
 - Worker 应用日志不记录完整 URL、查询参数、令牌或配置正文。

@@ -2,6 +2,7 @@ import { env, SELF } from 'cloudflare:test';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { PublishRequest } from '../../shared/contracts/profile';
+import { CURRENT_KEY } from '../../worker/lib/storage';
 
 const ADMIN_TOKEN = 'local-admin-token-change-me';
 const SUBSCRIPTION_TOKEN = 'local-subscription-token-change-me';
@@ -30,10 +31,7 @@ const publish = (token = ADMIN_TOKEN) =>
 
 describe('profile worker', () => {
   beforeEach(async () => {
-    const objects = await env.PROFILE_BUCKET.list();
-    if (objects.objects.length > 0) {
-      await env.PROFILE_BUCKET.delete(objects.objects.map((object) => object.key));
-    }
+    await env.PROFILE_STORE.delete(CURRENT_KEY);
   });
 
   it('rejects invalid administration and subscription tokens', async () => {

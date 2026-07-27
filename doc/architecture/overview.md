@@ -10,10 +10,9 @@ flowchart LR
   C --> E[Quantumult X renderer]
   D --> F[Authenticated publish API]
   E --> F
-  F --> G[Immutable R2 version]
-  G --> H[Current pointer]
-  H --> I[Surge fixed URL]
-  H --> J[QX fixed URL]
+  F --> G[KV current snapshot]
+  G --> I[Surge fixed URL]
+  G --> J[QX fixed URL]
 ```
 
 ### Browser
@@ -24,23 +23,24 @@ flowchart LR
 
 ### Worker
 
-- Owns authorization, request limits, structural output checks, digests, version publication, and subscription distribution.
+- Owns authorization, request limits, structural output checks, digests, snapshot publication, and subscription distribution.
 - Does not parse YAML or reinterpret client conversion results.
-- Keeps routing in `worker/index.ts`; HTTP, auth, validation, and R2 behavior are separate modules under `worker/lib/` and `worker/routes/`.
+- Keeps routing in `worker/index.ts`; HTTP, auth, validation, and KV behavior are separate modules under `worker/lib/` and `worker/routes/`.
 
-### R2
+### Workers KV
 
-A published version uses these keys:
+A published profile is stored as one JSON value:
 
 ```text
-versions/<version>/source.yaml|conf
-versions/<version>/surge.conf
-versions/<version>/quanx.conf
-versions/<version>/metadata.json
-current.json
+profile:current = {
+  metadata,
+  source,
+  surge,
+  quanx
+}
 ```
 
-All version objects are written first. `current.json` is the commit point. Readers resolve the pointer and then stream the matching immutable object.
+Using one key keeps each published snapshot internally complete. KV is eventually consistent, so another region may briefly serve the previous complete snapshot after a publish, but readers never resolve a new pointer to missing content. Only the latest snapshot is retained.
 
 ## Conversion model
 

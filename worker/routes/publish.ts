@@ -1,7 +1,7 @@
 import type { PublishResponse, PublishedProfileMetadata } from '../../shared/contracts/profile';
 import { hasAdminAccess } from '../lib/auth';
 import { apiError, jsonResponse, readTextWithLimit } from '../lib/http';
-import { createDigests, CURRENT_KEY, objectKeys, subscriptionUrls } from '../lib/storage';
+import { createDigests, subscriptionUrls, writeCurrentProfile } from '../lib/storage';
 import { validatePublishRequest } from '../lib/validation';
 
 const MAX_REQUEST_BYTES = 10 * 1024 * 1024;
@@ -35,7 +35,6 @@ export const handlePublish = async (request: Request, env: Env): Promise<Respons
     const digests = await createDigests(payload);
     const publishedAt = new Date().toISOString();
     const version = `${publishedAt.replaceAll(/[:.]/g, '-')}-${digests.source.slice(0, 12)}`;
-    const keys = objectKeys(version, payload.sourceFormat);
     const metadata: PublishedProfileMetadata = {
       version,
       sourceName: payload.sourceName,
@@ -46,17 +45,11 @@ export const handlePublish = async (request: Request, env: Env): Promise<Respons
       stats: payload.stats,
       digests,
     };
-    const textHeaders = { httpMetadata: { contentType: 'text/plain; charset=utf-8' } } as const;
-    await Promise.all([
-      env.PROFILE_BUCKET.put(keys.source, payload.source, textHeaders),
-      env.PROFILE_BUCKET.put(keys.surge, payload.surge, textHeaders),
-      env.PROFILE_BUCKET.put(keys.quanx, payload.quanx, textHeaders),
-      env.PROFILE_BUCKET.put(keys.metadata, JSON.stringify(metadata), {
-        httpMetadata: { contentType: 'application/json; charset=utf-8' },
-      }),
-    ]);
-    await env.PROFILE_BUCKET.put(CURRENT_KEY, JSON.stringify(metadata), {
-      httpMetadata: { contentType: 'application/json; charset=utf-8' },
+    await writeCurrentProfile(env.PROFILE_STORE, {
+      metadata,
+      source: payload.source,
+      surge: payload.surge,
+      quanx: payload.quanx,
     });
 
     const response: PublishResponse = {

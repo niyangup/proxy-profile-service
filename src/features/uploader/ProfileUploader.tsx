@@ -260,7 +260,7 @@ export function ProfileUploader() {
       <footer>
         <span>转换发生在浏览器</span>
         <span aria-hidden="true">·</span>
-        <span>产物保存在私有 R2</span>
+        <span>产物保存在私有 KV</span>
       </footer>
     </main>
   );

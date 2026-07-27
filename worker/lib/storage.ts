@@ -6,15 +6,15 @@ import type {
   SubscriptionUrls,
 } from '../../shared/contracts/profile';
 
-export const CURRENT_KEY = 'current.json';
+export const CURRENT_KEY = 'profile:current';
 const encoder = new TextEncoder();
 
-export const objectKeys = (version: string, sourceFormat: PublishRequest['sourceFormat']) => ({
-  source: `versions/${version}/source.${sourceFormat === 'clash' ? 'yaml' : 'conf'}`,
-  surge: `versions/${version}/surge.conf`,
-  quanx: `versions/${version}/quanx.conf`,
-  metadata: `versions/${version}/metadata.json`,
-});
+export interface StoredProfile {
+  readonly metadata: PublishedProfileMetadata;
+  readonly source: string;
+  readonly surge: string;
+  readonly quanx: string;
+}
 
 const bytesToHex = (bytes: ArrayBuffer): string =>
   [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -31,13 +31,15 @@ export const createDigests = async (request: PublishRequest): Promise<ProfileDig
   return { source, surge, quanx };
 };
 
+export const readCurrentProfile = (store: KVNamespace): Promise<StoredProfile | null> =>
+  store.get<StoredProfile>(CURRENT_KEY, 'json');
+
+export const writeCurrentProfile = (store: KVNamespace, profile: StoredProfile): Promise<void> =>
+  store.put(CURRENT_KEY, JSON.stringify(profile));
+
 export const readCurrentMetadata = async (
-  bucket: R2Bucket,
-): Promise<PublishedProfileMetadata | null> => {
-  const object = await bucket.get(CURRENT_KEY);
-  if (!object) return null;
-  return object.json<PublishedProfileMetadata>();
-};
+  store: KVNamespace,
+): Promise<PublishedProfileMetadata | null> => (await readCurrentProfile(store))?.metadata ?? null;
 
 export const subscriptionUrls = (requestUrl: string, token: string): SubscriptionUrls => {
   const origin = new URL(requestUrl).origin;
