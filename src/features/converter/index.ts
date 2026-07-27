@@ -29,10 +29,11 @@ const countRemovedNodes = (warnings: readonly string[]): number => {
 export const convertProfile = (sourceName: string, source: string): ConvertedProfile => {
   const profile = normalize(sourceName, source);
   const quanx = renderQuanxProfile(profile);
-  const warnings =
-    quanx.skippedRules > 0
-      ? [...profile.warnings, `QX 输出已跳过 ${quanx.skippedRules} 条进程规则`]
-      : profile.warnings;
+  const warnings = [...profile.warnings];
+  if (quanx.skippedRules > 0) warnings.push(`QX 输出已跳过 ${quanx.skippedRules} 条进程规则`);
+  if (quanx.ignoredOptions.length > 0) {
+    warnings.push(`QX 输出已忽略不支持的规则选项：${quanx.ignoredOptions.join('、')}`);
+  }
   return {
     sourceFormat: profile.sourceFormat,
     sourceName,

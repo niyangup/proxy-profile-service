@@ -7,6 +7,8 @@ export const MAX_RULES = 50_000;
 
 const INFO_NODE_PATTERN = /(?:traffic|expire|流量|到期|剩余)/i;
 const BUILT_IN_POLICIES = new Set(['DIRECT', 'REJECT', 'REJECT-DROP', 'PROXY']);
+const UNSAFE_NAME_PATTERN = /[\r\n,=]/;
+const UNSAFE_VALUE_PATTERN = /[\r\n,]/;
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -121,4 +123,53 @@ export const ensureUniqueNames = (
     names.add(name);
   }
   return issues;
+};
+
+export const validateRequiredContent = (
+  proxies: readonly ProxyNode[],
+  groups: readonly PolicyGroup[],
+  rules: readonly RoutingRule[],
+): string[] => {
+  const issues: string[] = [];
+  if (proxies.length === 0) issues.push('配置至少需要一个可用代理节点');
+  if (groups.length === 0) issues.push('配置至少需要一个可用策略组');
+  if (!rules.some((rule) => rule.type === 'MATCH' || rule.type === 'FINAL')) {
+    issues.push('配置必须包含 MATCH 或 FINAL 最终规则');
+  }
+  return issues;
+};
+
+export const validateSerializableFields = (
+  proxies: readonly ProxyNode[],
+  groups: readonly PolicyGroup[],
+  rules: readonly RoutingRule[],
+): string[] => {
+  const issues: string[] = [];
+  const validateName = (kind: string, value: string) => {
+    if (UNSAFE_NAME_PATTERN.test(value)) {
+      issues.push(`${kind}“${value}”不能包含逗号、等号或换行`);
+    }
+  };
+  const validateValue = (kind: string, value: string | undefined) => {
+    if (value && UNSAFE_VALUE_PATTERN.test(value)) {
+      issues.push(`${kind}不能包含逗号或换行`);
+    }
+  };
+
+  for (const proxy of proxies) {
+    validateName('节点名称', proxy.name);
+    validateValue(`节点“${proxy.name}”的服务器地址`, proxy.server);
+    validateValue(`节点“${proxy.name}”的密码`, proxy.password);
+    validateValue(`节点“${proxy.name}”的 SNI`, proxy.sni);
+  }
+  for (const group of groups) {
+    validateName('策略组名称', group.name);
+    for (const member of group.members) validateName('策略成员名称', member);
+  }
+  for (const rule of rules) {
+    validateName('规则策略名称', rule.policy);
+    validateValue('规则匹配值', rule.value);
+    for (const option of rule.options) validateValue('规则选项', option);
+  }
+  return [...new Set(issues)];
 };

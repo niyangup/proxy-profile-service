@@ -15,6 +15,8 @@ import {
   splitCommaList,
   stripWrappingQuotes,
   validateReferences,
+  validateRequiredContent,
+  validateSerializableFields,
 } from '../utils';
 
 const SUPPORTED_SECTIONS = new Set(['General', 'Proxy', 'Proxy Group', 'Rule']);
@@ -222,6 +224,8 @@ export const parseSurgeProfile = (sourceName: string, source: string): Normalize
   }
   const filtered = removeInfoNodes(parsedProxies, parsedGroups);
   issues.push(
+    ...validateRequiredContent(filtered.proxies, filtered.groups, rules),
+    ...validateSerializableFields(filtered.proxies, filtered.groups, rules),
     ...ensureUniqueNames(filtered.proxies, filtered.groups),
     ...validateReferences(filtered.proxies, filtered.groups, rules),
   );

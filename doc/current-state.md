@@ -6,12 +6,15 @@
 
 - The React page exposes independent primary and backup upload slots. Each accepts one Clash YAML or Surge CONF up to 2 MB and detects the format from content.
 - Conversion runs in the browser through a shared normalized model. It supports Trojan nodes, `select` groups, common domain/IP/GEOIP/process/final rules, and removes traffic/expiry information nodes from generated outputs.
+- Empty profiles, profiles without a final rule, and field values that cannot be serialized safely to Surge/QX are rejected before publication. QX preserves `no-resolve` on IP/GEOIP rules and reports unsupported rule options.
+- Each upload slot ignores stale asynchronous file reads, so selecting a second file cannot be overwritten by a slower first read.
 - Clash input produces clean Surge and Quantumult X complete profiles.
 - Surge input is preserved byte-for-byte for the Surge output. Portable nodes, policies, DNS, and local rules are rendered for Quantumult X; unsupported Surge-only sections and rule types are reported before publishing.
 - `POST /api/publish` accepts a `primary` or `backup` slot, validates management access and payload shape/size, computes SHA-256 digests, and replaces only that slot's complete KV snapshot.
 - `GET /api/status` returns metadata and fixed URLs for both slots to an authenticated manager.
 - The original `/sub/surge.conf?p=...` and `/sub/quanx.conf?p=...` remain primary. Backup uses `/sub/backup/surge.conf?p=...` and `/sub/backup/quanx.conf?p=...`. All four share `SUBSCRIPTION_TOKEN`; missing or invalid values return `404`.
 - Subscription responses read the selected output from the current KV snapshot, use its SHA-256 digest as `ETag`, disable shared caching, and opt out of indexing.
+- Unexpected Worker failures emit minimal structured logs containing only the operation, method, pathname, and error type; query strings, credentials, profile content, and raw error messages are excluded.
 
 ## Current decisions
 
@@ -30,7 +33,7 @@ Performed locally:
 - `npm run format`
 - `npm run lint`
 - `npm run typecheck`
-- `npm test`: 6 frontend tests and 4 Worker tests passed, including independent primary/backup publication and preservation of the original primary URLs.
+- `npm test`: 10 frontend tests and 6 Worker tests passed, including conversion validation, QX option handling, file-read race protection, independent primary/backup publication, empty-snapshot rejection, safe error logging, and preservation of the original primary URLs.
 - `npm run build`: formatting, lint, type checking, Worker bundle, and client bundle passed.
 - `npm run deploy:dry-run`: the Bearer-authenticated Worker bundle, Static Assets, and existing `PROFILE_STORE` binding packaged successfully without publishing.
 - The primary/backup version was deployed successfully with Wrangler. Production `/` references the new client assets, `/api/health` returns `200`, and unauthenticated `/api/status` returns `401`.
@@ -50,6 +53,7 @@ Production is running the primary/backup version at `https://proxy-profile-servi
 ## Known constraints
 
 - Only Trojan nodes and `select` policy groups are accepted. Unsupported critical protocols or policy types block publishing instead of being silently dropped.
+- Names containing commas, equals signs, or line breaks and serialized values containing commas or line breaks are rejected because the supported target formats cannot represent them safely.
 - Surge Script, MITM, Rewrite, Map Local, SSID settings, and remote `RULE-SET` entries are not converted to QX.
 - Only the latest KV snapshot per slot is retained; publishing primary or backup replaces only that slot.
 - The two production credentials are currently identical and low entropy by explicit user choice. This weakens both management and subscription protection; rotate them to different cryptographically random values before broader use.

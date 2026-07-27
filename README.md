@@ -7,7 +7,7 @@
 - 输入：Clash YAML、Surge CONF，按文件内容自动识别。
 - 节点：当前支持 Trojan。
 - 策略：当前支持 `select`。
-- 规则：支持常见域名、IPv4/IPv6、GEOIP、进程和最终规则；QX 输出会跳过 iOS 不适用的进程规则。
+- 规则：支持常见域名、IPv4/IPv6、GEOIP、进程和最终规则；QX 输出会跳过 iOS 不适用的进程规则，并为 IP/GEOIP 规则保留 `no-resolve`。
 - Surge CONF 原样作为 Surge 输出；其节点、策略和可移植规则转换到 QX。
 - Surge Script、MITM、Rewrite、Map Local、SSID 和远程 `RULE-SET` 不会机械转换到 QX。
 
@@ -78,6 +78,8 @@ https://你的域名/sub/backup/quanx.conf?p=<SUBSCRIPTION_TOKEN>
 ```
 
 四个地址共用随机订阅令牌。错误或缺失的 `p` 统一返回 `404`。如果地址泄露，重新设置 `SUBSCRIPTION_TOKEN` 并在客户端更新地址即可。
+
+空配置、缺少最终规则，或包含无法安全写入 Surge/QX 文本格式的逗号、等号、换行等字符时，页面会阻止发布并指出问题。QX 不支持的规则选项不会静默丢弃，而会显示转换警告。
 
 ## 数据与安全
 

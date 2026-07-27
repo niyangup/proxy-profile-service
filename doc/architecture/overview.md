@@ -21,7 +21,9 @@ flowchart LR
 ### Browser
 
 - Owns untrusted text parsing, schema validation, format detection, normalization, rendering, and human-readable warnings.
+- Rejects empty or unterminated profiles and fields that cannot be represented safely in the supported comma-delimited targets. QX retains supported `no-resolve` options and surfaces ignored options as warnings.
 - Exposes independent primary and backup upload slots. Each slot accepts one Clash YAML or Surge CONF and can be updated without replacing the other slot.
+- Uses a per-slot selection generation so a stale asynchronous file read cannot replace a newer selection.
 - Holds `ADMIN_TOKEN` only in React component state and sends it as a Bearer credential; it is never written to browser storage.
 - Publishes the selected slot, source text, both rendered outputs, conversion stats, and warnings as one JSON payload.
 
@@ -30,6 +32,8 @@ flowchart LR
 - Owns management authorization, request limits, structural output checks, digests, per-slot snapshot publication, and subscription distribution.
 - Validates Bearer `ADMIN_TOKEN` for status and publication requests.
 - Does not parse YAML or reinterpret client conversion results.
+- Rejects zero-count publication statistics as a second guard against replacing a valid snapshot with empty output.
+- Logs unexpected failures as minimal structured metadata without URLs containing query strings, credentials, configuration bodies, or raw error messages.
 - Keeps routing in `worker/index.ts`; HTTP, auth, validation, and KV behavior are separate modules under `worker/lib/` and `worker/routes/`.
 
 ### Workers KV

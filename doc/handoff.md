@@ -32,6 +32,7 @@ https://<domain>/sub/backup/quanx.conf?p=<SUBSCRIPTION_TOKEN>
 - 页面提供主用和备用两个独立上传槽；每个供应方的 YAML/CONF 二选一，不是同时上传四个文件。
 - 原有 Surge 和 Quantumult X 地址继续代表主用；备用使用 `/sub/backup/*`，四个地址更新配置后均不变化。
 - 页面显示 `ADMIN_TOKEN` 输入框，令牌仅保存在 React 内存中；状态和发布请求使用 Bearer 鉴权。
+- 选择文件采用逐槽请求序号保护，较慢的旧文件读取结果不能覆盖用户后来选择的新文件。
 - 仓库通过根目录 `.nvmrc` 与 `package.json` 精确固定 Node.js `24.12.0`，供本地和 Cloudflare Workers Builds 使用。
 - 四个订阅地址共用一个 `SUBSCRIPTION_TOKEN`，通过查询参数 `p` 传递。
 - `p` 的安全设计要求是至少 32 字节密码学随机数据的 Base64URL 值。用户本次明确要求生产环境暂时使用相同的低熵管理/订阅凭据；实际值不得写入文档，且在分享服务或订阅地址前应尽快轮换为两个不同随机值。
@@ -101,6 +102,8 @@ flowchart LR
 
 当前故意只支持真实样本需要的 Trojan 节点与 `select` 策略组。遇到未知关键协议或策略类型时阻止发布，不能静默丢弃。
 
+转换器还会拒绝空配置、缺少 `MATCH`/`FINAL` 的配置，以及无法安全序列化到 Surge/QX 的逗号、等号或换行字符。QX 输出会为 IP/GEOIP 规则保留 `no-resolve`，其他未知规则选项会形成可见警告而不是静默丢弃。
+
 ### 上传界面
 
 核心文件：`src/features/uploader/ProfileUploader.tsx`
@@ -132,6 +135,8 @@ flowchart LR
 
 缺失或错误的订阅令牌统一返回 `404`，不暴露地址是否存在。
 
+Worker 会再次拒绝节点、策略组或规则计数为零的发布，避免异常客户端覆盖唯一快照。未知异常只写入最小化结构日志（操作、方法、路径、错误类型），不得记录查询参数、令牌、配置正文或原始错误信息。
+
 ## 6. 数据与安全边界
 
 - 真实 YAML、CONF、节点密码、MITM 证书和生产令牌不得写入仓库、测试 fixture、文档或日志。
@@ -157,8 +162,8 @@ npm run deploy:dry-run
 
 测试基线：
 
-- 前端：2 个测试文件，共 6 个测试通过，覆盖双入口、管理令牌 UI、Bearer 请求和备用槽发布。
-- Worker：1 个测试文件，共 4 个测试通过，覆盖主用旧 URL 兼容、备用独立存储、双槽状态和鉴权拒绝。
+- 前端：2 个测试文件，共 10 个测试通过，覆盖双入口、管理令牌 UI、Bearer 请求、备用槽发布、空配置与特殊字符校验、QX 规则选项和异步文件读取竞态。
+- Worker：1 个测试文件，共 6 个测试通过，覆盖主用旧 URL 兼容、备用独立存储、双槽状态、鉴权拒绝、空统计拒绝和安全异常日志。
 - 真实 WestData YAML 和 CONF 已进行只读烟雾转换，只输出统计与警告，没有输出凭据或派生产物。
 - Wrangler dry-run 已确认 Bearer 鉴权 Worker bundle、Static Assets 和 `PROFILE_STORE` KV binding 能正确打包。
 - 当前主用/备用版本已通过 Wrangler 部署；线上 `/` 引用新静态资源，`/api/health` 返回 `200`，未带令牌访问 `/api/status` 返回 `401`。

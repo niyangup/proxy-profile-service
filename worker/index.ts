@@ -1,4 +1,4 @@
-import { apiError, jsonResponse } from './lib/http';
+import { apiError, jsonResponse, logWorkerError } from './lib/http';
 import { handlePublish } from './routes/publish';
 import { handleStatus } from './routes/status';
 import { handleSubscription } from './routes/subscription';
@@ -37,7 +37,8 @@ export default {
     try {
       const response = await routeRequest(request, env);
       return response ?? env.ASSETS.fetch(request);
-    } catch {
+    } catch (error) {
+      logWorkerError('route', request, error);
       return apiError('INTERNAL_ERROR', '服务暂时不可用', 500);
     }
   },

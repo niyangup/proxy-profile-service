@@ -34,6 +34,9 @@ export const validatePublishRequest = (value: unknown): PublishRequest => {
   ) {
     throw new Error('INVALID_PAYLOAD');
   }
+  if (stats.proxies === 0 || stats.groups === 0 || stats.rules === 0) {
+    throw new Error('INVALID_PAYLOAD');
+  }
   if (
     encoder.encode(source).byteLength > MAX_SOURCE_BYTES ||
     encoder.encode(surge).byteLength > MAX_OUTPUT_BYTES ||

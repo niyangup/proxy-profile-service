@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ProfileUploader } from '../../src/features/uploader/ProfileUploader';
@@ -16,6 +16,14 @@ const emptyStatus = {
       quanx: 'https://example.com/sub/backup/quanx.conf?p=random',
     },
   },
+};
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
 };
 
 afterEach(() => {
@@ -99,5 +107,31 @@ describe('profile uploader', () => {
       slot: 'backup',
       sourceName: 'backup.yaml',
     });
+  });
+
+  it('keeps the newest file when an older read finishes later', async () => {
+    render(<ProfileUploader />);
+    const firstRead = deferred<string>();
+    const secondRead = deferred<string>();
+    const firstFile = new File([], 'first.yaml', { type: 'text/yaml' });
+    const secondFile = new File([], 'second.yaml', { type: 'text/yaml' });
+    vi.spyOn(firstFile, 'text').mockReturnValue(firstRead.promise);
+    vi.spyOn(secondFile, 'text').mockReturnValue(secondRead.promise);
+    const input = screen.getByLabelText('主用配置文件');
+
+    fireEvent.change(input, { target: { files: [firstFile] } });
+    fireEvent.change(input, { target: { files: [secondFile] } });
+    await act(async () => {
+      secondRead.resolve(clashFixture);
+      await secondRead.promise;
+    });
+    expect(screen.getByText('second.yaml')).toBeInTheDocument();
+
+    await act(async () => {
+      firstRead.resolve(clashFixture);
+      await firstRead.promise;
+    });
+    expect(screen.getByText('second.yaml')).toBeInTheDocument();
+    expect(screen.queryByText('first.yaml')).not.toBeInTheDocument();
   });
 });

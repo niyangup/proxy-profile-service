@@ -10,6 +10,18 @@ export const jsonResponse = (value: unknown, status = 200): Response =>
 export const apiError = (code: string, message: string, status: number): Response =>
   jsonResponse({ error: { code, message } }, status);
 
+export const logWorkerError = (operation: string, request: Request, error: unknown): void => {
+  console.error(
+    JSON.stringify({
+      event: 'worker_request_error',
+      operation,
+      method: request.method,
+      path: new URL(request.url).pathname,
+      errorType: error instanceof Error ? error.name : typeof error,
+    }),
+  );
+};
+
 export const readTextWithLimit = async (request: Request, maxBytes: number): Promise<string> => {
   const declaredLength = Number(request.headers.get('Content-Length') ?? 0);
   if (declaredLength > maxBytes) throw new Error('PAYLOAD_TOO_LARGE');

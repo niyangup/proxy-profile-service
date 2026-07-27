@@ -18,6 +18,8 @@ import {
   MAX_RULES,
   removeInfoNodes,
   validateReferences,
+  validateRequiredContent,
+  validateSerializableFields,
 } from '../utils';
 
 const SUPPORTED_RULE_TYPES = new Set<RoutingRule['type']>([
@@ -167,6 +169,8 @@ export const parseClashProfile = (sourceName: string, source: string): Normalize
     .filter((rule): rule is RoutingRule => Boolean(rule));
   const filtered = removeInfoNodes(parsedProxies, parsedGroups);
   issues.push(
+    ...validateRequiredContent(filtered.proxies, filtered.groups, rules),
+    ...validateSerializableFields(filtered.proxies, filtered.groups, rules),
     ...ensureUniqueNames(filtered.proxies, filtered.groups),
     ...validateReferences(filtered.proxies, filtered.groups, rules),
   );

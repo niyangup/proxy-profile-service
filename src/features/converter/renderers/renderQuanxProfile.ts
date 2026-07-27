@@ -18,6 +18,29 @@ const normalizePolicy = (policy: string): string => {
   return policy;
 };
 
+const QX_OPTION_RULE_TYPES = new Set<RoutingRule['type']>(['IP-CIDR', 'IP-CIDR6', 'GEOIP']);
+
+interface RenderedRule {
+  readonly content?: string;
+  readonly ignoredOptions: readonly string[];
+}
+
+const ruleOptions = (
+  rule: RoutingRule,
+): { readonly supported: string[]; readonly ignored: string[] } => {
+  const supported: string[] = [];
+  const ignored: string[] = [];
+  for (const option of rule.options) {
+    const normalized = option.toLowerCase();
+    if (normalized === 'no-resolve' && QX_OPTION_RULE_TYPES.has(rule.type)) {
+      supported.push('no-resolve');
+    } else {
+      ignored.push(option);
+    }
+  }
+  return { supported: [...new Set(supported)], ignored };
+};
+
 const renderProxy = (proxy: ProxyNode): string => {
   const options = [
     `password=${proxy.password}`,
@@ -31,19 +54,32 @@ const renderProxy = (proxy: ProxyNode): string => {
   return `trojan=${proxy.server}:${proxy.port}, ${options.join(', ')}`;
 };
 
-const renderRule = (rule: RoutingRule): string | undefined => {
-  if (rule.type === 'PROCESS-NAME') return undefined;
+const renderRule = (rule: RoutingRule): RenderedRule => {
+  if (rule.type === 'PROCESS-NAME') return { ignoredOptions: [] };
+  const options = ruleOptions(rule);
   if (rule.type === 'MATCH' || rule.type === 'FINAL') {
-    return `final, ${normalizePolicy(rule.policy)}`;
+    return {
+      content: ['final', normalizePolicy(rule.policy), ...options.supported].join(', '),
+      ignoredOptions: options.ignored,
+    };
   }
-  return `${QX_RULE_TYPES[rule.type]}, ${rule.value}, ${normalizePolicy(rule.policy)}`;
+  return {
+    content: [
+      QX_RULE_TYPES[rule.type],
+      rule.value,
+      normalizePolicy(rule.policy),
+      ...options.supported,
+    ].join(', '),
+    ignoredOptions: options.ignored,
+  };
 };
 
 export const renderQuanxProfile = (
   profile: NormalizedProfile,
-): { content: string; skippedRules: number } => {
+): { content: string; skippedRules: number; ignoredOptions: readonly string[] } => {
   const renderedRules = profile.rules.map(renderRule);
-  const skippedRules = renderedRules.filter((rule) => !rule).length;
+  const skippedRules = renderedRules.filter((rule) => !rule.content).length;
+  const ignoredOptions = [...new Set(renderedRules.flatMap((rule) => rule.ignoredOptions))];
   const dnsLines = profile.general.dnsServers.map((server) => `server = ${server}`);
   const lines = [
     '[general]',
@@ -64,8 +100,8 @@ export const renderQuanxProfile = (
     ...profile.proxies.map(renderProxy),
     '',
     '[filter_local]',
-    ...renderedRules.filter((rule): rule is string => Boolean(rule)),
+    ...renderedRules.flatMap((rule) => (rule.content ? [rule.content] : [])),
     '',
   ];
-  return { content: lines.join('\n'), skippedRules };
+  return { content: lines.join('\n'), skippedRules, ignoredOptions };
 };

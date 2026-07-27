@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import type {
   ProfileSlot,
@@ -244,6 +244,7 @@ const ProfileSlotCard = ({
 
 export function ProfileUploader() {
   const tokenId = useId();
+  const fileSelectionVersions = useRef<Record<ProfileSlot, number>>({ primary: 0, backup: 0 });
   const [adminToken, setAdminToken] = useState('');
   const [slotStates, setSlotStates] = useState<ProfileSlots<SlotState>>(initialSlotStates);
   const [status, setStatus] = useState<StatusResponse>();
@@ -264,6 +265,8 @@ export function ProfileUploader() {
   };
 
   const handleFile = async (slot: ProfileSlot, file: File | undefined) => {
+    const selectionVersion = fileSelectionVersions.current[slot] + 1;
+    fileSelectionVersions.current[slot] = selectionVersion;
     setRequestError('');
     setSlotStates((current) => ({
       ...current,
@@ -274,11 +277,13 @@ export function ProfileUploader() {
     try {
       const source = await file.text();
       const converted = convertProfile(file.name, source);
+      if (fileSelectionVersions.current[slot] !== selectionVersion) return;
       setSlotStates((current) => ({
         ...current,
         [slot]: { converted, issues: [] },
       }));
     } catch (error) {
+      if (fileSelectionVersions.current[slot] !== selectionVersion) return;
       const issues =
         error instanceof ConversionError
           ? error.issues

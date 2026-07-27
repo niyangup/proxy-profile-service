@@ -1,6 +1,6 @@
 import type { PublishResponse, PublishedProfileMetadata } from '../../shared/contracts/profile';
 import { hasAdminAccess } from '../lib/auth';
-import { apiError, jsonResponse, readTextWithLimit } from '../lib/http';
+import { apiError, jsonResponse, logWorkerError, readTextWithLimit } from '../lib/http';
 import {
   allSubscriptionUrls,
   createDigests,
@@ -11,7 +11,7 @@ import { validatePublishRequest } from '../lib/validation';
 
 const MAX_REQUEST_BYTES = 10 * 1024 * 1024;
 
-const errorResponse = (error: unknown): Response => {
+const errorResponse = (request: Request, error: unknown): Response => {
   const code = error instanceof Error ? error.message : 'UNKNOWN_ERROR';
   if (code === 'PAYLOAD_TOO_LARGE') return apiError(code, '上传内容超过限制', 413);
   if (code === 'INVALID_PAYLOAD') return apiError(code, '发布数据结构无效', 400);
@@ -19,6 +19,7 @@ const errorResponse = (error: unknown): Response => {
   if (code === 'INVALID_QUANX_OUTPUT')
     return apiError(code, 'Quantumult X 输出缺少必要配置段', 400);
   if (code === 'INVALID_JSON') return apiError(code, '请求不是有效 JSON', 400);
+  logWorkerError('publish', request, error);
   return apiError('PUBLISH_FAILED', '发布失败，当前版本未被替换', 500);
 };
 
@@ -75,6 +76,6 @@ export const handlePublish = async (request: Request, env: Env): Promise<Respons
     };
     return jsonResponse(response, 201);
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(request, error);
   }
 };

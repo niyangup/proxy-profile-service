@@ -1,7 +1,8 @@
 import { env, SELF } from 'cloudflare:test';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProfileSlot, PublishRequest } from '../../shared/contracts/profile';
+import { logWorkerError } from '../../worker/lib/http';
 import { BACKUP_KEY, CURRENT_KEY } from '../../worker/lib/storage';
 
 const ADMIN_TOKEN = 'local-admin-token-change-me';
@@ -34,6 +35,10 @@ const publish = (
   });
 
 describe('profile worker', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(async () => {
     await Promise.all([
       env.PROFILE_STORE.delete(CURRENT_KEY),
@@ -123,5 +128,37 @@ describe('profile worker', () => {
       sourceName: 'backup.yaml',
       sourceFormat: 'clash',
     });
+  });
+
+  it('rejects empty conversion statistics without replacing the current snapshot', async () => {
+    await publish('primary');
+    const response = await publish('primary', ADMIN_TOKEN, {
+      stats: { proxies: 0, groups: 0, rules: 0, skippedRules: 0, removedInfoNodes: 0 },
+    });
+
+    expect(response.status).toBe(400);
+    const current = await SELF.fetch(`https://example.com/sub/surge.conf?p=${SUBSCRIPTION_TOKEN}`);
+    expect(await current.text()).toBe(basePayload.surge);
+  });
+
+  it('logs only structured, non-sensitive context for Worker failures', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    logWorkerError(
+      'publish',
+      new Request('https://example.com/api/publish?p=must-not-log'),
+      new Error('sensitive-detail'),
+    );
+
+    expect(consoleError).toHaveBeenCalledOnce();
+    const logged = String(consoleError.mock.calls[0]?.[0]);
+    expect(JSON.parse(logged)).toEqual({
+      event: 'worker_request_error',
+      operation: 'publish',
+      method: 'GET',
+      path: '/api/publish',
+      errorType: 'Error',
+    });
+    expect(logged).not.toContain('must-not-log');
+    expect(logged).not.toContain('sensitive-detail');
   });
 });
