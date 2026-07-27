@@ -17,8 +17,8 @@
 
 - Cloudflare Worker is a storage and distribution boundary, not a conversion engine. This keeps large YAML parsing outside the Workers Free CPU budget.
 - Workers KV is used because it is included in the Workers Free plan. A single-key snapshot prevents split-version reads; because KV is eventually consistent, another region may briefly receive the previous complete snapshot after publication.
-- Management and subscription credentials are separate Workers Secrets. The browser does not persist the management token.
-- Query parameter `p` is a high-entropy token, not a short password. Surge and QX intentionally share one subscription token for simpler personal use.
+- Management and subscription credentials are modeled as separate Workers Secrets. The browser does not persist the management token.
+- Query parameter `p` should use a high-entropy token. The current production secrets were explicitly supplied by the user as identical low-entropy values; this is a known security exception and should be replaced before sharing the service URL or subscription links.
 - For the current WestData files, Clash YAML is the preferred input. It contains 4232 expanded rules; Surge CONF contains mostly remote Surge `RULE-SET` references that cannot safely be reused as QX local rules.
 - Every AI conversation must end with a documentation state check. Any changed project fact must be reflected in `doc/handoff.md`, `doc/current-state.md`, and architecture documentation where applicable before the final response; stale conclusions are replaced rather than appended as a chronological log.
 
@@ -32,22 +32,24 @@ Performed locally:
 - `npm test`: 5 frontend tests and 3 Worker tests passed.
 - `npm run build`: formatting, lint, type checking, Worker bundle, and client bundle passed.
 - `npm run deploy:dry-run`: Worker Static Assets and the `PROFILE_STORE` KV binding packaged successfully without publishing.
+- `npm run deploy`: production deployment succeeded with the existing KV namespace and configured Workers Secrets.
+- Post-deployment HTTP smoke test: `/` and `/api/health` both returned `200`.
 - Real-file read-only smoke conversion:
   - `westData2.yaml`: 61 usable proxies, 21 groups, 4232 rules, 32 QX-inapplicable process rules, 2 information nodes removed.
   - `WestData-expanded.conf`: 61 usable proxies, 21 groups, 9 portable local rules, 2 QX-inapplicable process rules, 2 information nodes removed; Surge-only remote rules and sections were reported.
 
 Not yet performed:
 
-- Production secrets configuration.
-- Successful deployment of the KV-backed Worker.
+- Publishing the first real profile to production.
 - Post-deployment testing in Surge and Quantumult X.
 
 ## Deployment state
 
-Commit `10ea3dc` switched production from R2 to Workers KV. Cloudflare created the free namespace `proxy-profile-service-profile-store`, but dashboard deployment could not write its generated ID back to GitHub and a retry failed with duplicate-name error `10014`. `wrangler.jsonc` now pins the existing namespace ID so future builds reuse it. The Worker's Secret list is still empty; `ADMIN_TOKEN` and `SUBSCRIPTION_TOKEN` must be added before deployment can succeed. No R2 or R2 billing setup is required.
+Production is deployed at `https://proxy-profile-service.niyangup.workers.dev` using the pinned `proxy-profile-service-profile-store` KV namespace. `ADMIN_TOKEN` and `SUBSCRIPTION_TOKEN` are present as Workers Secrets; their values are not stored in the repository or documentation. The initial deployment retry exposed an invalid `public/_headers` layout, which has been corrected to valid Cloudflare path blocks. No R2 or R2 billing setup is required.
 
 ## Known constraints
 
 - Only Trojan nodes and `select` policy groups are accepted. Unsupported critical protocols or policy types block publishing instead of being silently dropped.
 - Surge Script, MITM, Rewrite, Map Local, SSID settings, and remote `RULE-SET` entries are not converted to QX.
 - Only the latest KV snapshot is retained; publishing replaces the previous stored configuration.
+- The two production credentials are currently identical and low entropy by explicit user choice. This weakens both management and subscription protection; rotate them to different cryptographically random values before broader use.

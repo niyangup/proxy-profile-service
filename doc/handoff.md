@@ -30,7 +30,7 @@ https://<domain>/sub/quanx.conf?p=<SUBSCRIPTION_TOKEN>
 - 输出是 Surge 和 Quantumult X 两个固定地址；每次上传新文件后地址不能变化。
 - 上传由 `ADMIN_TOKEN` 保护。
 - 两个订阅地址共用一个 `SUBSCRIPTION_TOKEN`，通过查询参数 `p` 传递。
-- `p` 必须是至少 32 字节密码学随机数据的 Base64URL 值，不能使用 `ny` 之类可猜短值。
+- `p` 的安全设计要求是至少 32 字节密码学随机数据的 Base64URL 值。用户本次明确要求生产环境暂时使用相同的低熵管理/订阅凭据；实际值不得写入文档，且在分享服务或订阅地址前应尽快轮换为两个不同随机值。
 - 服务不使用第三方订阅转换接口，不把节点凭据发送给无关第三方。
 - 生产 KV、Secrets 和部署只能在用户明确要求后执行。现有 KV namespace 已通过 ID 固定在 `wrangler.jsonc` 中，不需要 R2。
 
@@ -132,6 +132,7 @@ flowchart LR
 - `/Users/niyangup/Downloads/WestData-expanded.conf` 包含代理密码、MITM `ca-p12` 和证书口令，读取时视为敏感输入，禁止在回答或命令输出中复述。
 - `.dev.vars` 已被 Git 忽略，只包含本地开发占位值；生产令牌必须通过 `wrangler secret put` 设置。
 - `SUBSCRIPTION_TOKEN` 是凭据。改成查询参数只是 URL 形态变化，安全性仍依赖随机强度。
+- 当前生产 `ADMIN_TOKEN` 与 `SUBSCRIPTION_TOKEN` 已配置，但按用户明确要求使用了相同的低熵值。这是已知安全例外，不应把当前服务或订阅链接公开分享；轮换时必须改成两个不同的随机值。
 - Surge Script、MITM、Rewrite、Map Local、SSID 和远程 `RULE-SET` 不应假装兼容 QX。
 - KV 只保留最新完整快照，不保留历史版本；这是为了适配免费额度并避免多键最终一致造成半发布状态。
 
@@ -146,6 +147,7 @@ npm run typecheck
 npm test
 npm run build
 npm run deploy:dry-run
+npm run deploy
 ```
 
 测试基线：
@@ -154,6 +156,7 @@ npm run deploy:dry-run
 - Worker：1 个测试文件，共 3 个测试通过。
 - 真实 WestData YAML 和 CONF 已进行只读烟雾转换，只输出统计与警告，没有输出凭据或派生产物。
 - Wrangler dry-run 已确认 Worker Static Assets 和 `PROFILE_STORE` KV binding 能正确打包。
+- 生产部署已成功；部署后 `/` 与 `/api/health` 均实测返回 `200`。
 
 ## 8. 当前部署状态
 
@@ -162,16 +165,13 @@ npm run deploy:dry-run
 - R2 已从代码和 `wrangler.jsonc` 移除，提交 `10ea3dc` 已推送到 GitHub `main`。
 - Cloudflare 已自动创建免费 KV namespace `proxy-profile-service-profile-store`。
 - 自动创建未能把 namespace ID 回写 GitHub，导致后续构建报重复名称 `10014`；配置现已固定到现有 namespace ID。
-
-当前阻塞：
-
-- 配置生产 `ADMIN_TOKEN`。
-- 配置生产 `SUBSCRIPTION_TOKEN`。
-- 构建 `554b0793-171a-4a70-a8cf-8e4012f5b625` 因上述两个必需 Secret 尚未设置而未能完成部署。
+- 生产 `ADMIN_TOKEN` 与 `SUBSCRIPTION_TOKEN` 已作为 Workers Secrets 配置，值不进入 Git 或文档。
+- `public/_headers` 的路径块语法已修正，避免 Cloudflare 报 `Invalid _headers configuration`。
+- KV 版本 Worker 已成功部署，地址为 `https://proxy-profile-service.niyangup.workers.dev`。
 
 尚未进行：
 
-- 成功部署 KV 版本 Worker。
+- 用真实 YAML 发布第一份生产快照。
 - 在真实 Surge 和 Quantumult X 中导入并验证两个远程地址。
 
 首次部署步骤记录在 `README.md`。除非用户明确要求部署，否则只能执行 `npm run deploy:dry-run`，不能运行 `npm run deploy`。
@@ -204,11 +204,8 @@ npm run deploy:dry-run
 
 ## 11. 下一步
 
-当前 KV 实现已经完成、推送且 dry-run 通过。最自然的下一步是用户完成生产 Secret 配置后：
+当前 KV 实现、生产 Secrets 和首次部署均已完成。最自然的下一步是：
 
-1. 在 Cloudflare Dashboard 中以 Secret 类型设置 `ADMIN_TOKEN` 和 `SUBSCRIPTION_TOKEN`。
-2. 重试最新 GitHub 构建；KV namespace 已存在，不需要另建存储。
-3. 用最新 YAML 发布首个版本。
-4. 分别在 Mac Surge 和 iPhone Quantumult X 中验证固定地址、刷新和分流行为。
-
-如果用户没有要求部署，则当前没有必须继续修改的阻塞项。
+1. 将两个当前低熵且相同的生产 Secret 轮换成两个不同的密码学随机值。
+2. 用最新 Clash YAML 发布首个生产版本。
+3. 分别在 Mac Surge 和 iPhone Quantumult X 中验证固定地址、刷新和分流行为。
