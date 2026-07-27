@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "env": {
+    "builtin": true
+  },
+  "ignorePatterns": ["dist/**", "coverage/**", "node_modules/**"],
+  "options": {
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error"
+  },
+  "overrides": [
+    {
+      "files": ["src/**/*.ts"],
+      "env": { "browser": true }
+    },
+    {
+      "files": ["test/**/*.ts"],
+      "env": { "node": true, "vitest": true }
+    },
+    {
+      "files": ["scripts/**/*.mjs"],
+      "env": { "node": true }
+    }
+  ],
+  "rules": {
+    "vitest/no-focused-tests": "error"
+  }
+}
