@@ -179,11 +179,13 @@ npm run deploy:dry-run
 - `public/_headers` 的路径块语法已修正，避免 Cloudflare 报 `Invalid _headers configuration`。
 - KV 版本 Worker 已成功部署，地址为 `https://proxy-profile-service.niyangup.workers.dev`。
 - 主用/备用版本提交 `9b5ab49` 已推送；Git 连接的 Workers Build 失败且 GitHub 未提供详细日志，随后已通过 Wrangler 直接部署版本 `d7511cb4-cf7b-4105-b2c9-3a8043ad913b`。
+- 转换校验、上传竞态保护和安全日志加固已通过干净安装、16 项测试和 Wrangler dry-run，并已推送到 GitHub `main`。最近一次只读检查时，Git 连接构建尚未生成比 `d7511cb4-cf7b-4105-b2c9-3a8043ad913b` 更新的 Worker 版本；不要把“已推送”误当成“已上线”。
 
 尚未进行：
 
 - 用真实 YAML 分别发布第一份主用、备用生产快照。
 - 在真实 Surge 和 Quantumult X 中导入并验证两个远程地址。
+- 确认 Git 连接构建成功上线最新 `main`；若仍失败，先读取 Cloudflare 构建日志，不要未经用户授权直接部署。
 
 首次部署步骤记录在 `README.md`。除非用户明确要求部署，否则只能执行 `npm run deploy:dry-run`，不能运行 `npm run deploy`。
 

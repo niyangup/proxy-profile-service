@@ -48,7 +48,7 @@ Not yet performed:
 
 ## Deployment state
 
-Production is running the primary/backup version at `https://proxy-profile-service.niyangup.workers.dev` using the pinned `proxy-profile-service-profile-store` KV namespace. Version `d7511cb4-cf7b-4105-b2c9-3a8043ad913b` was deployed directly with Wrangler after the Git-connected Workers Build for commit `9b5ab49` failed without exposing its detailed log through GitHub. `ADMIN_TOKEN` and `SUBSCRIPTION_TOKEN` are present and are the only required production Secrets. No R2 or R2 billing setup is required.
+Production is running the primary/backup version at `https://proxy-profile-service.niyangup.workers.dev` using the pinned `proxy-profile-service-profile-store` KV namespace. Version `d7511cb4-cf7b-4105-b2c9-3a8043ad913b` was deployed directly with Wrangler after the Git-connected Workers Build for commit `9b5ab49` failed without exposing its detailed log through GitHub. The validated hardening changes are on GitHub `main`; at the latest read-only check, the Git-connected build had not yet produced a newer Worker version. `ADMIN_TOKEN` and `SUBSCRIPTION_TOKEN` are present and are the only required production Secrets. No R2 or R2 billing setup is required.
 
 ## Known constraints
 
