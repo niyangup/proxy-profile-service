@@ -18,6 +18,7 @@
 - Cloudflare Worker is a storage and distribution boundary, not a conversion engine. This keeps large YAML parsing outside the Workers Free CPU budget.
 - Workers KV is used because it is included in the Workers Free plan. One complete key per slot prevents split-version reads; because KV is eventually consistent, another region may briefly receive the previous complete version of the updated slot.
 - The browser management UI asks for `ADMIN_TOKEN`, keeps it only in React memory, and sends it as a Bearer credential for status and publication requests.
+- Development and Cloudflare Workers Builds are pinned to Node.js `24.12.0` through `.nvmrc` and the exact root package engine declaration, matching the local environment.
 - Query parameter `p` should use a high-entropy token. The current production secrets were explicitly supplied by the user as identical low-entropy values; this is a known security exception and should be replaced before sharing the service URL or subscription links.
 - For the current WestData files, Clash YAML is the preferred input. It contains 4232 expanded rules; Surge CONF contains mostly remote Surge `RULE-SET` references that cannot safely be reused as QX local rules.
 - Every AI conversation must end with a documentation state check. Any changed project fact must be reflected in `doc/handoff.md`, `doc/current-state.md`, and architecture documentation where applicable before the final response; stale conclusions are replaced rather than appended as a chronological log.

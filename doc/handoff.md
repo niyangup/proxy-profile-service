@@ -32,6 +32,7 @@ https://<domain>/sub/backup/quanx.conf?p=<SUBSCRIPTION_TOKEN>
 - 页面提供主用和备用两个独立上传槽；每个供应方的 YAML/CONF 二选一，不是同时上传四个文件。
 - 原有 Surge 和 Quantumult X 地址继续代表主用；备用使用 `/sub/backup/*`，四个地址更新配置后均不变化。
 - 页面显示 `ADMIN_TOKEN` 输入框，令牌仅保存在 React 内存中；状态和发布请求使用 Bearer 鉴权。
+- 仓库通过根目录 `.nvmrc` 与 `package.json` 精确固定 Node.js `24.12.0`，供本地和 Cloudflare Workers Builds 使用。
 - 四个订阅地址共用一个 `SUBSCRIPTION_TOKEN`，通过查询参数 `p` 传递。
 - `p` 的安全设计要求是至少 32 字节密码学随机数据的 Base64URL 值。用户本次明确要求生产环境暂时使用相同的低熵管理/订阅凭据；实际值不得写入文档，且在分享服务或订阅地址前应尽快轮换为两个不同随机值。
 - 服务不使用第三方订阅转换接口，不把节点凭据发送给无关第三方。

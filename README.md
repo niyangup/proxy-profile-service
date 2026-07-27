@@ -15,7 +15,7 @@
 
 ## 本地开发
 
-需要 Node.js 22.12 或更高版本。
+需要 Node.js 24.12.0。仓库根目录的 `.nvmrc` 同时供本地版本管理器与 Cloudflare Workers Builds 读取。
 
 ```bash
 npm install
