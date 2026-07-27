@@ -56,7 +56,7 @@ npx wrangler secret put SUBSCRIPTION_TOKEN
 npm run deploy
 ```
 
-Wrangler 会根据 `PROFILE_STORE` binding 自动创建免费的 KV namespace，无需预先创建 R2 或配置 R2 结算。
+`PROFILE_STORE` 已绑定到当前 Cloudflare 账户中的免费 KV namespace `proxy-profile-service-profile-store`，无需 R2 或 R2 结算。
 
 部署后也可以在 Cloudflare Dashboard 为 Worker 绑定自定义域名。
 

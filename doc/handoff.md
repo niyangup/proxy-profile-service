@@ -32,7 +32,7 @@ https://<domain>/sub/quanx.conf?p=<SUBSCRIPTION_TOKEN>
 - 两个订阅地址共用一个 `SUBSCRIPTION_TOKEN`，通过查询参数 `p` 传递。
 - `p` 必须是至少 32 字节密码学随机数据的 Base64URL 值，不能使用 `ny` 之类可猜短值。
 - 服务不使用第三方订阅转换接口，不把节点凭据发送给无关第三方。
-- 生产 KV、Secrets 和部署只能在用户明确要求后执行。KV 由 Wrangler 在首次部署时自动创建，不需要 R2。
+- 生产 KV、Secrets 和部署只能在用户明确要求后执行。现有 KV namespace 已通过 ID 固定在 `wrangler.jsonc` 中，不需要 R2。
 
 ## 3. 最重要的最新结论
 
@@ -161,6 +161,7 @@ npm run deploy:dry-run
 
 - R2 已从代码和 `wrangler.jsonc` 移除，提交 `10ea3dc` 已推送到 GitHub `main`。
 - Cloudflare 已自动创建免费 KV namespace `proxy-profile-service-profile-store`。
+- 自动创建未能把 namespace ID 回写 GitHub，导致后续构建报重复名称 `10014`；配置现已固定到现有 namespace ID。
 
 当前阻塞：
 

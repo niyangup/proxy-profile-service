@@ -12,6 +12,7 @@
   "kv_namespaces": [
     {
       "binding": "PROFILE_STORE",
+      "id": "a3a6fdc458b54fcea27657a175caf314",
     },
   ],
   "secrets": {

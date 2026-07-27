@@ -44,7 +44,7 @@ Not yet performed:
 
 ## Deployment state
 
-Commit `10ea3dc` switched production from R2 to Workers KV and was pushed to GitHub `main`. Cloudflare automatically created the free namespace `proxy-profile-service-profile-store`. Build `554b0793-171a-4a70-a8cf-8e4012f5b625` did not deploy because the Worker's Secret list is still empty; `ADMIN_TOKEN` and `SUBSCRIPTION_TOKEN` must be added before retrying. No R2 or R2 billing setup is required.
+Commit `10ea3dc` switched production from R2 to Workers KV. Cloudflare created the free namespace `proxy-profile-service-profile-store`, but dashboard deployment could not write its generated ID back to GitHub and a retry failed with duplicate-name error `10014`. `wrangler.jsonc` now pins the existing namespace ID so future builds reuse it. The Worker's Secret list is still empty; `ADMIN_TOKEN` and `SUBSCRIPTION_TOKEN` must be added before deployment can succeed. No R2 or R2 billing setup is required.
 
 ## Known constraints
 
