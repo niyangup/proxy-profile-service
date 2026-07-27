@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "quantumultx-resource-parser",
+  "name": "proxy-profile-service",
   "compatibility_date": "2026-07-27",
   "assets": {
     "directory": "./dist",
