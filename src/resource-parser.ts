@@ -1,7 +1,9 @@
 import { convertResource, ResourceParseError } from './index';
+import { encodeBase64Utf8 } from './utils';
 
 interface QuantumultResource {
   readonly content?: string;
+  readonly type?: string;
 }
 
 declare const $resource: QuantumultResource | undefined;
@@ -13,7 +15,11 @@ const notify = (title: string, subtitle: string, message: string): void => {
 };
 
 try {
-  const source = typeof $resource === 'undefined' ? '' : ($resource.content ?? '');
+  const resource = typeof $resource === 'undefined' ? undefined : $resource;
+  if (resource?.type && resource.type !== 'server') {
+    throw new ResourceParseError('请将远程资源类型设置为 server');
+  }
+  const source = resource?.content ?? '';
   const result = convertResource(source);
   if (result.skippedNodes > 0) {
     notify(
@@ -22,7 +28,7 @@ try {
       result.warnings.slice(0, 3).join('\n'),
     );
   }
-  $done({ content: result.content });
+  $done({ content: encodeBase64Utf8(result.content) });
 } catch (error) {
   const message =
     error instanceof ResourceParseError || error instanceof Error ? error.message : '未知错误';

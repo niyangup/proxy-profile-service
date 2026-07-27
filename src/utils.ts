@@ -5,6 +5,7 @@ export const MAX_NODES = 5_000;
 
 const INFO_NODE_PATTERN = /(?:traffic|expire|流量|到期|剩余|套餐)/i;
 const UNSAFE_VALUE_PATTERN = /[\r\n,]/;
+const BASE64_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 export type UnknownRecord = Record<string, unknown>;
 
@@ -60,6 +61,58 @@ export const utf8ByteLength = (value: string): number => {
     }
   }
   return bytes;
+};
+
+export const encodeBase64Utf8 = (value: string): string => {
+  let result = '';
+  let buffer = 0;
+  let bits = 0;
+
+  const appendByte = (byte: number): void => {
+    buffer = (buffer << 8) | byte;
+    bits += 8;
+    while (bits >= 6) {
+      bits -= 6;
+      result += BASE64_CHARACTERS[(buffer >> bits) & 0x3f];
+    }
+    buffer = bits === 0 ? 0 : buffer & ((1 << bits) - 1);
+  };
+
+  for (let index = 0; index < value.length; index += 1) {
+    const first = value.charCodeAt(index);
+    let codePoint = first;
+    if (first >= 0xd800 && first <= 0xdbff) {
+      const second = value.charCodeAt(index + 1);
+      if (second >= 0xdc00 && second <= 0xdfff) {
+        codePoint = 0x1_0000 + ((first - 0xd800) << 10) + (second - 0xdc00);
+        index += 1;
+      } else {
+        codePoint = 0xfffd;
+      }
+    } else if (first >= 0xdc00 && first <= 0xdfff) {
+      codePoint = 0xfffd;
+    }
+
+    if (codePoint < 0x80) {
+      appendByte(codePoint);
+    } else if (codePoint < 0x800) {
+      appendByte(0xc0 | (codePoint >> 6));
+      appendByte(0x80 | (codePoint & 0x3f));
+    } else if (codePoint < 0x1_0000) {
+      appendByte(0xe0 | (codePoint >> 12));
+      appendByte(0x80 | ((codePoint >> 6) & 0x3f));
+      appendByte(0x80 | (codePoint & 0x3f));
+    } else {
+      appendByte(0xf0 | (codePoint >> 18));
+      appendByte(0x80 | ((codePoint >> 12) & 0x3f));
+      appendByte(0x80 | ((codePoint >> 6) & 0x3f));
+      appendByte(0x80 | (codePoint & 0x3f));
+    }
+  }
+
+  if (bits > 0) result += BASE64_CHARACTERS[(buffer << (6 - bits)) & 0x3f];
+  while (result.length % 4 !== 0) result += '=';
+  return result;
 };
 
 export const assertSafeNode = (node: ProxyNode): void => {
