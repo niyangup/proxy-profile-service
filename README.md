@@ -15,7 +15,13 @@
 
 ## 本地开发
 
-需要 Node.js 24.12.0。仓库根目录的 `.nvmrc` 同时供本地版本管理器与 Cloudflare Workers Builds 读取。
+需要 Node.js 24.12.0，本地配套 npm 11.6.2。仓库根目录的 `.nvmrc` 同时供本地版本管理器与 Cloudflare Workers Builds 读取。
+
+Cloudflare Workers Builds 的自动依赖安装目前固定使用构建镜像自带的 npm 10.9.2，不会随 Node 24 切换到 npm 11。仓库的 `package-lock.json` 已同时通过 npm 10.9.2 和 npm 11.6.2 的 `npm ci` 校验。更新依赖后应再次用 Cloudflare 对应版本验证：
+
+```bash
+npx --yes npm@10.9.2 clean-install --dry-run
+```
 
 ```bash
 npm install

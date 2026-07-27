@@ -34,6 +34,7 @@ https://<domain>/sub/backup/quanx.conf?p=<SUBSCRIPTION_TOKEN>
 - 页面显示 `ADMIN_TOKEN` 输入框，令牌仅保存在 React 内存中；状态和发布请求使用 Bearer 鉴权。
 - 选择文件采用逐槽请求序号保护，较慢的旧文件读取结果不能覆盖用户后来选择的新文件。
 - 仓库通过根目录 `.nvmrc` 与 `package.json` 精确固定 Node.js `24.12.0`，供本地和 Cloudflare Workers Builds 使用。
+- 本地 Node 24.12.0 配套 npm 11.6.2，但 Workers Builds 自动安装阶段按 Cloudflare 官方构建镜像固定使用 npm 10.9.2，不能通过 `.nvmrc` 一并切换；同一份 lockfile 必须兼容两者。
 - 四个订阅地址共用一个 `SUBSCRIPTION_TOKEN`，通过查询参数 `p` 传递。
 - `p` 的安全设计要求是至少 32 字节密码学随机数据的 Base64URL 值。用户本次明确要求生产环境暂时使用相同的低熵管理/订阅凭据；实际值不得写入文档，且在分享服务或订阅地址前应尽快轮换为两个不同随机值。
 - 服务不使用第三方订阅转换接口，不把节点凭据发送给无关第三方。
@@ -180,6 +181,7 @@ npm run deploy:dry-run
 - KV 版本 Worker 已成功部署，地址为 `https://proxy-profile-service.niyangup.workers.dev`。
 - 主用/备用版本提交 `9b5ab49` 已推送；Git 连接的 Workers Build 失败且 GitHub 未提供详细日志，随后已通过 Wrangler 直接部署版本 `d7511cb4-cf7b-4105-b2c9-3a8043ad913b`。
 - 转换校验、上传竞态保护和安全日志加固已通过干净安装、16 项测试和 Wrangler dry-run，并已推送到 GitHub `main`。最近一次只读检查时，Git 连接构建尚未生成比 `d7511cb4-cf7b-4105-b2c9-3a8043ad913b` 更新的 Worker 版本；不要把“已推送”误当成“已上线”。
+- 随后的 Git 构建曾在 npm 10.9.2 `clean-install` 阶段报 `Invalid Version`。根因是 npm 11 锁文件中可选 wasm 依赖存在无版本空节点，并非 Node 版本未固定。锁文件已用 npm 10.9.2 重新补全，npm 10 真实干净安装、npm 11 lock 校验、构建和 16 项测试均通过；仍需观察推送后的 Cloudflare 构建结果。
 
 尚未进行：
 
