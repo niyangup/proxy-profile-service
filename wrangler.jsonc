@@ -15,6 +15,9 @@
       "bucket_name": "proxy-profile-service",
     },
   ],
+  "secrets": {
+    "required": ["ADMIN_TOKEN", "SUBSCRIPTION_TOKEN"],
+  },
   "observability": {
     "enabled": true,
     "logs": {
