@@ -181,13 +181,12 @@ npm run deploy:dry-run
 - KV 版本 Worker 已成功部署，地址为 `https://proxy-profile-service.niyangup.workers.dev`。
 - 主用/备用版本提交 `9b5ab49` 已推送；Git 连接的 Workers Build 失败且 GitHub 未提供详细日志，随后已通过 Wrangler 直接部署版本 `d7511cb4-cf7b-4105-b2c9-3a8043ad913b`。
 - 转换校验、上传竞态保护和安全日志加固已通过干净安装、16 项测试和 Wrangler dry-run，并已推送到 GitHub `main`。最近一次只读检查时，Git 连接构建尚未生成比 `d7511cb4-cf7b-4105-b2c9-3a8043ad913b` 更新的 Worker 版本；不要把“已推送”误当成“已上线”。
-- 随后的 Git 构建曾在 npm 10.9.2 `clean-install` 阶段报 `Invalid Version`。根因是 npm 11 锁文件中可选 wasm 依赖存在无版本空节点，并非 Node 版本未固定。锁文件已用 npm 10.9.2 重新补全，npm 10 真实干净安装、npm 11 lock 校验、构建和 16 项测试均通过；仍需观察推送后的 Cloudflare 构建结果。
+- 随后的 Git 构建曾在 npm 10.9.2 `clean-install` 阶段报 `Invalid Version`。根因是 npm 11 锁文件中可选 wasm 依赖存在无版本空节点，并非 Node 版本未固定。锁文件已用 npm 10.9.2 重新补全，npm 10 真实干净安装、npm 11 lock 校验、构建和 16 项测试均通过。Workers Builds 随后成功部署版本 `e79d8526-4fac-468d-bd9e-0e9726652675` 并承载 100% 生产流量，Git 自动部署已恢复。
 
 尚未进行：
 
 - 用真实 YAML 分别发布第一份主用、备用生产快照。
 - 在真实 Surge 和 Quantumult X 中导入并验证两个远程地址。
-- 确认 Git 连接构建成功上线最新 `main`；若仍失败，先读取 Cloudflare 构建日志，不要未经用户授权直接部署。
 
 首次部署步骤记录在 `README.md`。除非用户明确要求部署，否则只能执行 `npm run deploy:dry-run`，不能运行 `npm run deploy`。
 

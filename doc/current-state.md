@@ -50,7 +50,7 @@ Not yet performed:
 
 ## Deployment state
 
-Production is running the primary/backup version at `https://proxy-profile-service.niyangup.workers.dev` using the pinned `proxy-profile-service-profile-store` KV namespace. Version `d7511cb4-cf7b-4105-b2c9-3a8043ad913b` was deployed directly with Wrangler after the Git-connected Workers Build for commit `9b5ab49` failed without exposing its detailed log through GitHub. A later Git build failed during npm 10.9.2 installation because npm 11 had emitted incomplete metadata for optional wasm dependencies; the lockfile has now been regenerated and verified with both npm versions, but the resulting Git build has not yet been observed. `ADMIN_TOKEN` and `SUBSCRIPTION_TOKEN` are present and are the only required production Secrets. No R2 or R2 billing setup is required.
+Production is running at `https://proxy-profile-service.niyangup.workers.dev` using the pinned `proxy-profile-service-profile-store` KV namespace. An earlier version, `d7511cb4-cf7b-4105-b2c9-3a8043ad913b`, required a direct Wrangler deployment after a Git build failed. A later Git build failed during npm 10.9.2 installation because npm 11 had emitted incomplete metadata for optional wasm dependencies. After regenerating and validating the lockfile with both npm versions, Workers Builds successfully deployed version `e79d8526-4fac-468d-bd9e-0e9726652675` with 100% production traffic, confirming that Git-connected deployment works again. `ADMIN_TOKEN` and `SUBSCRIPTION_TOKEN` are present and are the only required production Secrets. No R2 or R2 billing setup is required.
 
 ## Known constraints
 
