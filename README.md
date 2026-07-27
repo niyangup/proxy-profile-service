@@ -1,99 +1,94 @@
-# Proxy Profile Service
+# Quantumult X Resource Parser
 
-一个部署在 Cloudflare Workers 上的私有代理配置转换与分发服务。手机或电脑分别上传主用、备用代理的 Clash YAML / Surge CONF 后，浏览器本地完成转换，Worker 将两个产物快照分别保存到 Workers KV，并提供两组固定的 Surge 与 Quantumult X 订阅地址。
+一个自主实现的 Quantumult X 资源解析器。它把 Clash YAML 或 Surge CONF 中的代理节点直接转换成 Quantumult X 节点行，配置内容只在 Quantumult X 本地处理，不上传到本项目的服务器。
+
+项目部署后只提供两个静态文件：
+
+- `/resource-parser.js`：给 Quantumult X 使用的解析脚本。
+- `/`：不含管理功能的简要使用说明。
+
+不再包含上传页面、Worker API、KV/R2 存储、Access、管理令牌或订阅令牌。
+
+## 使用方法
+
+把部署域名写入 Quantumult X 配置的 `[general]`：
+
+```ini
+resource_parser_url = https://你的域名/resource-parser.js
+```
+
+然后在 Quantumult X 中把供应商的 Clash YAML 或 Surge CONF 地址添加为服务器远程资源。刷新资源时，Quantumult X 会下载源配置并在本地调用该脚本，只导入其中的节点。
+
+如果配置来自本地文件，也可以先把文件导入 Quantumult X；是否调用资源解析器取决于 Quantumult X 当前版本和导入入口。长期使用更推荐供应商的 HTTPS 远程地址，这样可以直接刷新。
+
+> 脚本只转换节点，不转换 Clash 策略组、规则、DNS 或 Surge 的 Rewrite/MITM/Script 等配置。
 
 ## 支持范围
 
-- 输入：Clash YAML、Surge CONF，按文件内容自动识别。
-- 节点：当前支持 Trojan。
-- 策略：当前支持 `select`。
-- 规则：支持常见域名、IPv4/IPv6、GEOIP、进程和最终规则；QX 输出会跳过 iOS 不适用的进程规则，并为 IP/GEOIP 规则保留 `no-resolve`。
-- Surge CONF 原样作为 Surge 输出；其节点、策略和可移植规则转换到 QX。
-- Surge Script、MITM、Rewrite、Map Local、SSID 和远程 `RULE-SET` 不会机械转换到 QX。
+输入格式按内容自动识别：
 
-对当前供应方应优先上传 Clash YAML：YAML 已展开完整规则；Surge CONF 主要引用 Surge 专用远程规则，转换到 QX 时会缺少这些规则。
+- Clash YAML：读取顶层 `proxies`。
+- Surge CONF：读取 `[Proxy]`。
 
-## 本地开发
+当前协议：
 
-需要 Node.js 24.12.0，本地配套 npm 11.6.2。仓库根目录的 `.nvmrc` 同时供本地版本管理器与 Cloudflare Workers Builds 读取。
+- Shadowsocks，包括 simple-obfs 和 v2ray-plugin WebSocket。
+- ShadowsocksR。
+- Trojan，包括 SNI、WebSocket 和证书校验选项。
+- VMess，包括 TCP、WebSocket、TLS。
+- VLESS，包括 WebSocket、TLS、Reality 和 flow。
+- HTTP/HTTPS。
+- SOCKS5/SOCKS5-TLS。
+- AnyTLS。
 
-Cloudflare Workers Builds 的自动依赖安装目前固定使用构建镜像自带的 npm 10.9.2，不会随 Node 24 切换到 npm 11。仓库的 `package-lock.json` 已同时通过 npm 10.9.2 和 npm 11.6.2 的 `npm ci` 校验。更新依赖后应再次用 Cloudflare 对应版本验证：
+不支持的节点会被跳过；Quantumult X 支持 `$notify` 时会显示转换数量和最多三条原因。流量、到期、剩余套餐等信息节点会自动过滤。如果所有节点都无法转换，脚本返回空内容并通知错误。
 
-```bash
-npx --yes npm@10.9.2 clean-install --dry-run
+限制：源文件最大 5 MB、最多 5000 个节点。为避免配置行注入，包含逗号或换行且无法安全序列化的字段会被跳过。
+
+## Cloudflare 部署
+
+这是纯 Static Assets 项目，不会创建 Worker 入口、KV、R2 或 Secret。
+
+Cloudflare Workers Builds 可使用：
+
+```text
+构建命令：npm run build
+部署命令：npx wrangler deploy
 ```
 
-```bash
-npm install
-npm run dev
-```
+项目通过 `.nvmrc` 和 `package.json` 固定 Node.js `24.12.0`。Cloudflare 自动依赖安装使用构建镜像自带的 npm 版本即可，提交的 `package-lock.json` 供 `npm ci` 使用。
 
-本地令牌位于被 Git 忽略的 `.dev.vars`。仓库不应包含生产令牌、真实订阅配置或生成产物。
-
-常用验证命令：
+也可以从本地部署：
 
 ```bash
-npm run format
-npm run lint
-npm run typecheck
-npm test
-npm run build
-npm run deploy:dry-run
-```
-
-## 首次部署
-
-1. 登录 Wrangler：
-
-```bash
-npx wrangler login
-```
-
-2. 使用密码管理器分别生成 `ADMIN_TOKEN` 与 `SUBSCRIPTION_TOKEN`，并通过交互式输入设置，不要把值写进命令历史：
-
-```bash
-npx wrangler secret put ADMIN_TOKEN
-npx wrangler secret put SUBSCRIPTION_TOKEN
-```
-
-3. 部署：
-
-```bash
+npm ci
 npm run deploy
 ```
 
-`PROFILE_STORE` 已绑定到当前 Cloudflare 账户中的免费 KV namespace `proxy-profile-service-profile-store`，无需 R2 或 R2 结算。
+构建产物位于 `dist/`，不提交 Git。
 
-部署后也可以在 Cloudflare Dashboard 为 Worker 绑定自定义域名。
+## 本地开发
 
-## 使用流程
-
-1. 打开部署后的管理页面并输入 `ADMIN_TOKEN`。令牌仅保存在当前页面内存，不写入浏览器存储。
-2. 在“主用配置”上传主力代理的 Clash YAML；只有没有 YAML 时才选 Surge CONF。
-3. 在“备用配置”上传备用代理的 YAML 或 CONF。两个槽位可独立更新，不要求同时上传。
-4. 分别查看转换统计与警告，确认后发布。
-5. 把页面返回的主用、备用固定地址分别保存到 Surge 和 Quantumult X。
-
-地址形式：
-
-```text
-https://你的域名/sub/surge.conf?p=<SUBSCRIPTION_TOKEN>
-https://你的域名/sub/quanx.conf?p=<SUBSCRIPTION_TOKEN>
-https://你的域名/sub/backup/surge.conf?p=<SUBSCRIPTION_TOKEN>
-https://你的域名/sub/backup/quanx.conf?p=<SUBSCRIPTION_TOKEN>
+```bash
+npm ci
+npm run dev
 ```
 
-四个地址共用随机订阅令牌。错误或缺失的 `p` 统一返回 `404`。如果地址泄露，重新设置 `SUBSCRIPTION_TOKEN` 并在客户端更新地址即可。
+完整验证：
 
-空配置、缺少最终规则，或包含无法安全写入 Surge/QX 文本格式的逗号、等号、换行等字符时，页面会阻止发布并指出问题。QX 不支持的规则选项不会静默丢弃，而会显示转换警告。
+```bash
+npm run check
+npm run deploy:dry-run
+```
 
-## 数据与安全
+核心模块：
 
-- 配置解析和转换发生在浏览器；Worker 不承担大 YAML 的解析 CPU。
-- 状态和发布接口使用 Bearer `ADMIN_TOKEN`；前端不持久化该令牌。
-- 主用和备用分别以一个完整 KV 快照保存原始配置、Surge 输出、Quantumult X 输出和元数据；更新一方不会覆盖另一方。
-- KV 最终一致：不同地区最多可能短暂读取到上一版完整快照，但不会读到缺文件的半发布版本。
-- 为控制免费额度，每个槽位只保留最新快照，不保留历史版本。
-- 订阅响应禁止公共缓存和搜索引擎索引。
-- 页面不加载第三方脚本、字体或统计资源。
-- Worker 应用日志不记录完整 URL、查询参数、令牌或配置正文。
+- `src/parse-clash.ts`：Clash YAML 解析。
+- `src/parse-surge.ts`：Surge `[Proxy]` 解析。
+- `src/render.ts`：Quantumult X 节点输出。
+- `src/resource-parser.ts`：Quantumult X `$resource` / `$done` / `$notify` 入口。
+- `scripts/build.mjs`：将解析器及 YAML 依赖打包成单个脚本。
+
+## 隐私与许可
+
+本项目不接收、保存或转发代理配置。部署站点没有分析脚本或第三方资源。源码使用 MIT License；打包的 `yaml` 依赖许可见 `THIRD_PARTY_NOTICES.md`。

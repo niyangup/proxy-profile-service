@@ -1,6 +1,5 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["eslint", "typescript", "unicorn", "oxc", "react", "import", "vitest", "jsx-a11y"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn",
@@ -9,41 +8,26 @@
   "env": {
     "builtin": true
   },
-  "ignorePatterns": ["dist/**", "coverage/**", "node_modules/**", "worker-configuration.d.ts"],
+  "ignorePatterns": ["dist/**", "coverage/**", "node_modules/**"],
   "options": {
     "denyWarnings": true,
     "reportUnusedDisableDirectives": "error"
   },
   "overrides": [
     {
-      "files": ["src/**/*.{ts,tsx}"],
+      "files": ["src/**/*.ts"],
       "env": { "browser": true }
     },
     {
-      "files": ["worker/**/*.ts"],
-      "env": { "worker": true }
+      "files": ["test/**/*.ts"],
+      "env": { "node": true, "vitest": true }
     },
     {
-      "files": ["test/frontend/**/*.{ts,tsx}"],
-      "env": { "browser": true, "vitest": true }
-    },
-    {
-      "files": ["test/worker/**/*.ts"],
-      "env": { "worker": true, "vitest": true }
-    },
-    {
-      "files": ["*.config.ts"],
+      "files": ["scripts/**/*.mjs", "*.config.ts"],
       "env": { "node": true }
-    },
-    {
-      "files": ["src/main.tsx", "src/App.tsx", "test/frontend/setup.ts"],
-      "rules": { "import/no-unassigned-import": "off" }
     }
   ],
   "rules": {
-    "react/react-in-jsx-scope": "off",
-    "react-hooks/rules-of-hooks": "error",
-    "react-hooks/exhaustive-deps": "warn",
     "vitest/no-focused-tests": "error"
   }
 }

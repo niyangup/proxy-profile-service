@@ -1,88 +1,63 @@
 # Architecture
 
-## Responsibility boundaries
+## Data flow
 
 ```mermaid
 flowchart LR
-  A[Primary YAML or CONF] --> C[Browser converter]
-  B[Backup YAML or CONF] --> C
-  C --> D[Primary normalized profile]
-  C --> E[Backup normalized profile]
-  D --> F[Surge and QX renderers]
-  E --> G[Surge and QX renderers]
-  F --> H[Bearer-authenticated publish API]
-  G --> H
-  H --> I[KV primary snapshot]
-  H --> J[KV backup snapshot]
-  I --> K[Primary fixed URLs]
-  J --> L[Backup fixed URLs]
+  A[Supplier Clash YAML or Surge CONF] --> B[Quantumult X remote resource]
+  C[Public resource-parser.js] --> B
+  B --> D[Format detection]
+  D --> E[Normalized proxy nodes]
+  E --> F[Safe QX node renderer]
+  F --> G[Quantumult X server list]
 ```
 
-### Browser
+The supplier profile and parser script are downloaded independently by Quantumult X. Conversion runs inside the client; Cloudflare serves only immutable project assets and never receives the supplier profile through this application.
 
-- Owns untrusted text parsing, schema validation, format detection, normalization, rendering, and human-readable warnings.
-- Rejects empty or unterminated profiles and fields that cannot be represented safely in the supported comma-delimited targets. QX retains supported `no-resolve` options and surfaces ignored options as warnings.
-- Exposes independent primary and backup upload slots. Each slot accepts one Clash YAML or Surge CONF and can be updated without replacing the other slot.
-- Uses a per-slot selection generation so a stale asynchronous file read cannot replace a newer selection.
-- Holds `ADMIN_TOKEN` only in React component state and sends it as a Bearer credential; it is never written to browser storage.
-- Publishes the selected slot, source text, both rendered outputs, conversion stats, and warnings as one JSON payload.
+## Module boundaries
 
-### Worker
+### Source adapters
 
-- Owns management authorization, request limits, structural output checks, digests, per-slot snapshot publication, and subscription distribution.
-- Validates Bearer `ADMIN_TOKEN` for status and publication requests.
-- Does not parse YAML or reinterpret client conversion results.
-- Rejects zero-count publication statistics as a second guard against replacing a valid snapshot with empty output.
-- Logs unexpected failures as minimal structured metadata without URLs containing query strings, credentials, configuration bodies, or raw error messages.
-- Keeps routing in `worker/index.ts`; HTTP, auth, validation, and KV behavior are separate modules under `worker/lib/` and `worker/routes/`.
+`parse-clash.ts` parses YAML with bounded aliases and adapts the top-level `proxies` array. `parse-surge.ts` scans only `[Proxy]`, using a quote-aware comma splitter so unrelated Surge configuration is ignored.
 
-### Workers KV
+Both adapters produce `ProxyNode` values from `model.ts` and warnings for individual unsupported or malformed nodes. They do not render output.
 
-Each slot is stored as one independent JSON value:
+### Conversion orchestration
 
-```text
-profile:current = { metadata, source, surge, quanx }  # primary
-profile:backup  = { metadata, source, surge, quanx }  # backup
+`index.ts` owns content-based format detection, the 5 MB/5000-node limits, information-node filtering, renderer error isolation, aggregate statistics, and terminal errors when no node can be converted.
+
+### QX renderer
+
+`render.ts` maps normalized nodes to one Quantumult X line per node. It formats IPv6 endpoints, preserves representable TLS/SNI/transport options, and rejects comma/newline field injection before joining output.
+
+### Runtime and build
+
+`resource-parser.ts` is a thin adapter around Quantumult X globals:
+
+- reads `$resource.content`;
+- optionally reports skipped nodes through `$notify`;
+- returns `{ content }` through `$done`;
+- catches parsing failures and returns empty content.
+
+`scripts/build.mjs` uses esbuild to bundle this entry and `yaml` into a single ES2020 IIFE, then copies the static documentation assets into `dist/`.
+
+## Deployment
+
+```mermaid
+flowchart LR
+  A[GitHub repository] --> B[Cloudflare build: npm run build]
+  B --> C[dist/index.html]
+  B --> D[dist/resource-parser.js]
+  C --> E[Cloudflare Static Assets]
+  D --> E
 ```
 
-Using one key per slot keeps each published profile internally complete. Updating backup does not replace primary and vice versa. KV is eventually consistent, so another region may briefly serve the previous complete version of that slot after a publish, but readers never resolve a half-written profile. Only the latest snapshot in each slot is retained.
+`wrangler.jsonc` intentionally has an `assets.directory` and no `main`. There are no API routes, Durable Objects, KV/R2/D1 bindings, service bindings, environment variables, or secrets.
 
-## Conversion model
+## Security properties
 
-Both input formats map to:
-
-- `ProxyNode`
-- `PolicyGroup`
-- `RoutingRule`
-- `GeneralSettings`
-
-Renderers depend only on that model. Adding another source format requires a new adapter; adding another target requires a new renderer. There are no direct Clash-to-QX or Surge-to-QX cross-module dependencies.
-
-Surge input additionally retains `rawSource`. The Surge renderer returns it unchanged, preserving sections that do not belong in the normalized cross-platform model.
-
-## URL compatibility
-
-The original URLs remain the primary slot:
-
-```text
-/sub/surge.conf?p=<SUBSCRIPTION_TOKEN>
-/sub/quanx.conf?p=<SUBSCRIPTION_TOKEN>
-```
-
-Backup uses a separate stable prefix:
-
-```text
-/sub/backup/surge.conf?p=<SUBSCRIPTION_TOKEN>
-/sub/backup/quanx.conf?p=<SUBSCRIPTION_TOKEN>
-```
-
-All four URLs share `SUBSCRIPTION_TOKEN`; changing the token rotates every subscription URL.
-
-## Security model
-
-- `ADMIN_TOKEN` protects status and publication APIs and is entered in the browser management UI for the current page session.
-- `SUBSCRIPTION_TOKEN` is supplied as `p` on all fixed subscription URLs.
-- Secret comparisons hash both values with SHA-256 before `crypto.subtle.timingSafeEqual`.
-- Invalid subscription paths and tokens return the same `404` response.
-- Static assets use a restrictive CSP and no third-party resources.
-- Subscription responses use `Cache-Control: private, no-store` and `X-Robots-Tag`.
+- The hosted script is public code and contains no proxy credentials.
+- Supplier content is processed by Quantumult X, not submitted to this Cloudflare project.
+- Unsafe comma/newline values cannot create extra QX fields or lines.
+- Source size, YAML alias expansion, and node count are bounded.
+- Static responses set a restrictive CSP, disable MIME sniffing, and allow cross-origin loading of the parser script.
