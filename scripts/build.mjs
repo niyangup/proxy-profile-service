@@ -3,9 +3,10 @@ import { rm } from 'node:fs/promises';
 import { build } from 'esbuild';
 
 await rm('dist', { force: true, recursive: true });
+const builtAt = new Date().toISOString();
 await build({
   banner: {
-    js: '/* Quantumult X Resource Parser v0.1.0 | MIT | Built from independently authored source */',
+    js: `/* Quantumult X Resource Parser v0.1.0 | Built at ${builtAt} | MIT */`,
   },
   bundle: true,
   entryPoints: ['src/resource-parser.ts'],
