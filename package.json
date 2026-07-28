@@ -13,7 +13,7 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
-    "yaml": "^2.9.0"
+    "js-yaml": "^5.2.2"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",

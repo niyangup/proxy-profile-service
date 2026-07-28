@@ -1,4 +1,4 @@
-import { parseDocument } from 'yaml';
+import { load } from 'js-yaml';
 
 import type { ProxyNode } from './model';
 import { asBoolean, asInteger, asPort, asString, isRecord, type UnknownRecord } from './utils';
@@ -176,9 +176,7 @@ export interface ParsedNodes {
 }
 
 export const parseClash = (source: string): ParsedNodes => {
-  const document = parseDocument(source, { uniqueKeys: true });
-  if (document.errors.length > 0) throw new Error('YAML 语法无效');
-  const root: unknown = document.toJS({ maxAliasCount: 100 });
+  const root: unknown = load(source);
   if (!isRecord(root) || !Array.isArray(root.proxies)) throw new Error('找不到 Clash proxies');
 
   const nodes: ProxyNode[] = [];
