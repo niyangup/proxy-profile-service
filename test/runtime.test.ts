@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 import { build } from 'esbuild';
@@ -132,5 +133,18 @@ describe('Quantumult X runtime bundle', () => {
 
     const decoded = Buffer.from(content, 'base64').toString('utf8');
     expect(decoded).toContain('tag=Parser-Error-ResourceParseError:');
+  });
+
+  it('static probe returns a known Base64-encoded node', () => {
+    const script = readFileSync('src/static-probe.js', 'utf8');
+    let content = '';
+
+    vm.runInNewContext(script, {
+      $done: (result: { content: string }) => {
+        content = result.content;
+      },
+    });
+
+    expect(Buffer.from(content, 'base64').toString('utf8')).toContain('tag=Parser-Static-Base64');
   });
 });

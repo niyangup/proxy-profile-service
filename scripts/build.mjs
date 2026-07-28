@@ -37,3 +37,4 @@ await build({
 await copyFile('dist/resource-parser.js', 'dist/resource-parser.txt');
 await copyFile('dist/resource-parser.js', 'dist/resource-parser-lite.txt');
 await copyFile('dist/resource-parser.js', 'dist/resource-parser-native.txt');
+await copyFile('src/static-probe.js', 'dist/static-probe.txt');
