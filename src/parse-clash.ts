@@ -1,7 +1,213 @@
-import { load } from 'js-yaml';
-
 import type { ProxyNode } from './model';
 import { asBoolean, asInteger, asPort, asString, isRecord, type UnknownRecord } from './utils';
+
+const YAML_KEY_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+const indentation = (line: string): number => line.match(/^ */)?.[0].length ?? 0;
+
+const stripYamlComment = (value: string): string => {
+  let quote = '';
+  let escaped = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (escaped) {
+      escaped = false;
+    } else if (character === '\\' && quote === '"') {
+      escaped = true;
+    } else if (quote) {
+      if (character === quote) quote = '';
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '#' && (index === 0 || /\s/.test(value[index - 1] ?? ''))) {
+      return value.slice(0, index).trimEnd();
+    }
+  }
+  return value.trimEnd();
+};
+
+const splitYamlFields = (value: string): string[] => {
+  const fields: string[] = [];
+  let current = '';
+  let quote = '';
+  let escaped = false;
+  let depth = 0;
+  for (const character of value) {
+    if (escaped) {
+      current += character;
+      escaped = false;
+    } else if (character === '\\' && quote === '"') {
+      current += character;
+      escaped = true;
+    } else if (quote) {
+      current += character;
+      if (character === quote) quote = '';
+    } else if (character === '"' || character === "'") {
+      current += character;
+      quote = character;
+    } else if (character === '{' || character === '[') {
+      current += character;
+      depth += 1;
+    } else if (character === '}' || character === ']') {
+      current += character;
+      depth -= 1;
+    } else if (character === ',' && depth === 0) {
+      fields.push(current.trim());
+      current = '';
+    } else {
+      current += character;
+    }
+  }
+  if (quote || depth !== 0) throw new Error('YAML 行内结构未闭合');
+  fields.push(current.trim());
+  return fields;
+};
+
+const yamlSeparator = (value: string): number => {
+  let quote = '';
+  let escaped = false;
+  let depth = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (escaped) {
+      escaped = false;
+    } else if (character === '\\' && quote === '"') {
+      escaped = true;
+    } else if (quote) {
+      if (character === quote) quote = '';
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '{' || character === '[') {
+      depth += 1;
+    } else if (character === '}' || character === ']') {
+      depth -= 1;
+    } else if (character === ':' && depth === 0) {
+      return index;
+    }
+  }
+  return -1;
+};
+
+const parseYamlKey = (value: string): string => {
+  const key = value.trim();
+  const unquoted =
+    (key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))
+      ? key.slice(1, -1)
+      : key;
+  if (!YAML_KEY_PATTERN.test(unquoted)) throw new Error(`YAML 字段名无效：${unquoted}`);
+  if (unquoted === '__proto__' || unquoted === 'constructor' || unquoted === 'prototype') {
+    throw new Error('YAML 包含不安全字段名');
+  }
+  return unquoted;
+};
+
+const parseYamlScalar = (rawValue: string): unknown => {
+  const value = stripYamlComment(rawValue).trim();
+  if (!value) return '';
+  if (value.startsWith('"') && value.endsWith('"')) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      throw new Error('YAML 双引号字符串无效');
+    }
+  }
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replace(/''/g, "'");
+  }
+  if (value.startsWith('{') && value.endsWith('}')) return parseInlineMap(value.slice(1, -1));
+  if (value.startsWith('[') && value.endsWith(']')) {
+    return splitYamlFields(value.slice(1, -1)).map(parseYamlScalar);
+  }
+  if (/^(?:true|false)$/i.test(value)) return value.toLowerCase() === 'true';
+  if (/^(?:null|~)$/i.test(value)) return null;
+  if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value)) return Number(value);
+  return value;
+};
+
+const setYamlField = (record: UnknownRecord, key: string, value: unknown): void => {
+  if (Object.prototype.hasOwnProperty.call(record, key)) throw new Error(`YAML 字段重复：${key}`);
+  record[key] = value;
+};
+
+function parseInlineMap(value: string): UnknownRecord {
+  const record: UnknownRecord = {};
+  for (const field of splitYamlFields(value)) {
+    if (!field) continue;
+    const separator = yamlSeparator(field);
+    if (separator <= 0) throw new Error('YAML 行内对象无效');
+    setYamlField(
+      record,
+      parseYamlKey(field.slice(0, separator)),
+      parseYamlScalar(field.slice(separator + 1)),
+    );
+  }
+  return record;
+}
+
+const parseProxySequence = (source: string): unknown[] => {
+  const lines = source.replace(/\r\n?/g, '\n').split('\n');
+  const start = lines.findIndex((line) =>
+    /^\s*(?:proxies|["']proxies["'])\s*:\s*(?:#.*)?$/.test(line),
+  );
+  if (start < 0) throw new Error('找不到 Clash proxies');
+  const baseIndent = indentation(lines[start] ?? '');
+  const nodes: UnknownRecord[] = [];
+  let current: UnknownRecord | undefined;
+  let itemIndent = -1;
+  let frames: Array<{ readonly indent: number; readonly record: UnknownRecord }> = [];
+
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const rawLine = lines[index] ?? '';
+    const withoutComment = stripYamlComment(rawLine);
+    if (!withoutComment.trim()) continue;
+    const lineIndent = indentation(rawLine);
+    const trimmed = withoutComment.trim();
+    if (lineIndent <= baseIndent) break;
+
+    if (trimmed.startsWith('-') && (itemIndent < 0 || lineIndent === itemIndent)) {
+      itemIndent = lineIndent;
+      current = {};
+      nodes.push(current);
+      frames = [{ indent: itemIndent, record: current }];
+      const remainder = trimmed.slice(1).trim();
+      if (!remainder) continue;
+      if (remainder.startsWith('{') && remainder.endsWith('}')) {
+        Object.assign(current, parseInlineMap(remainder.slice(1, -1)));
+        continue;
+      }
+      const separator = yamlSeparator(remainder);
+      if (separator <= 0) throw new Error(`第 ${index + 1} 行 YAML 节点无效`);
+      const key = parseYamlKey(remainder.slice(0, separator));
+      const rawValue = remainder.slice(separator + 1);
+      if (stripYamlComment(rawValue).trim()) {
+        setYamlField(current, key, parseYamlScalar(rawValue));
+      } else {
+        const child: UnknownRecord = {};
+        setYamlField(current, key, child);
+        frames.push({ indent: itemIndent + 2, record: child });
+      }
+      continue;
+    }
+
+    if (!current || itemIndent < 0 || lineIndent <= itemIndent) continue;
+    const separator = yamlSeparator(trimmed);
+    if (separator <= 0) throw new Error(`第 ${index + 1} 行 YAML 字段无效`);
+    while (frames.length > 1 && (frames[frames.length - 1]?.indent ?? -1) >= lineIndent) {
+      frames.pop();
+    }
+    const parent = frames[frames.length - 1]?.record;
+    if (!parent) throw new Error(`第 ${index + 1} 行 YAML 缩进无效`);
+    const key = parseYamlKey(trimmed.slice(0, separator));
+    const rawValue = trimmed.slice(separator + 1);
+    if (stripYamlComment(rawValue).trim()) {
+      setYamlField(parent, key, parseYamlScalar(rawValue));
+    } else {
+      const child: UnknownRecord = {};
+      setYamlField(parent, key, child);
+      frames.push({ indent: lineIndent, record: child });
+    }
+  }
+  return nodes;
+};
 
 const parseWebSocket = (value: UnknownRecord): Pick<ProxyNode, 'wsHost' | 'wsPath'> => {
   const options = isRecord(value['ws-opts']) ? value['ws-opts'] : undefined;
@@ -176,12 +382,11 @@ export interface ParsedNodes {
 }
 
 export const parseClash = (source: string): ParsedNodes => {
-  const root: unknown = load(source);
-  if (!isRecord(root) || !Array.isArray(root.proxies)) throw new Error('找不到 Clash proxies');
+  const proxies = parseProxySequence(source);
 
   const nodes: ProxyNode[] = [];
   const warnings: string[] = [];
-  root.proxies.forEach((value, index) => {
+  proxies.forEach((value, index) => {
     try {
       nodes.push(parseNode(value));
     } catch (error) {
@@ -189,5 +394,5 @@ export const parseClash = (source: string): ParsedNodes => {
       warnings.push(`第 ${index + 1} 个节点已跳过：${reason}`);
     }
   });
-  return { nodes, sourceNodes: root.proxies.length, warnings };
+  return { nodes, sourceNodes: proxies.length, warnings };
 };
