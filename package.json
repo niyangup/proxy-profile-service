@@ -13,6 +13,8 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
   },
   "devDependencies": {
+    "@emnapi/core": "^1.11.3",
+    "@emnapi/runtime": "^1.11.3",
     "@types/node": "^24.13.2",
     "esbuild": "^0.28.1",
     "oxfmt": "^0.60.0",
