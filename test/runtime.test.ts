@@ -5,10 +5,10 @@ import { describe, expect, it } from 'vitest';
 
 import { encodeBase64Utf8 } from '../src/utils';
 
-const bundleParser = async (): Promise<string> => {
+const bundleParser = async (entryPoint = 'src/resource-parser.ts'): Promise<string> => {
   const result = await build({
     bundle: true,
-    entryPoints: ['src/resource-parser.ts'],
+    entryPoints: [entryPoint],
     format: 'iife',
     platform: 'browser',
     target: ['es2017'],
@@ -89,5 +89,48 @@ describe('Quantumult X runtime bundle', () => {
 
     expect(content).toBe('');
     expect(notification).toContain('资源类型设置为 server');
+  });
+
+  it('probe returns exactly one Base64-encoded converted node', async () => {
+    const bundle = await bundleParser('src/resource-parser-probe.ts');
+    let content = '';
+
+    vm.runInNewContext(bundle, {
+      $done: (result: { content: string }) => {
+        content = result.content;
+      },
+      $resource: {
+        content: `proxies:
+  - name: first
+    type: trojan
+    server: first.example.com
+    port: 443
+    password: first-secret
+  - name: second
+    type: trojan
+    server: second.example.com
+    port: 443
+    password: second-secret`,
+      },
+    });
+
+    const decoded = Buffer.from(content, 'base64').toString('utf8');
+    expect(decoded).toContain('trojan=first.example.com:443');
+    expect(decoded).not.toContain('second.example.com');
+  });
+
+  it('probe exposes runtime errors as a Base64-encoded diagnostic node', async () => {
+    const bundle = await bundleParser('src/resource-parser-probe.ts');
+    let content = '';
+
+    vm.runInNewContext(bundle, {
+      $done: (result: { content: string }) => {
+        content = result.content;
+      },
+      $resource: { content: 'not a supported resource' },
+    });
+
+    const decoded = Buffer.from(content, 'base64').toString('utf8');
+    expect(decoded).toContain('tag=Parser-Error-ResourceParseError:');
   });
 });

@@ -18,6 +18,20 @@ await build({
   target: ['es2017'],
 });
 
+await build({
+  banner: {
+    js: `/* Quantumult X Single-Node Probe | Built at ${builtAt} | MIT */`,
+  },
+  bundle: true,
+  entryPoints: ['src/resource-parser-probe.ts'],
+  format: 'iife',
+  legalComments: 'eof',
+  minify: true,
+  outfile: 'dist/resource-parser-probe.txt',
+  platform: 'browser',
+  target: ['es2017'],
+});
+
 // GitHub Pages serves .js as application/javascript. Quantumult X is more
 // reliable with parser URLs served as text/plain, like GitHub raw URLs.
 await copyFile('dist/resource-parser.js', 'dist/resource-parser.txt');
