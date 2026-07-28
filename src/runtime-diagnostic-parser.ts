@@ -16,7 +16,12 @@ const diagnosticNode = (message: string): string => {
 try {
   const resource = typeof $resource === 'undefined' ? undefined : $resource;
   const result = convertResource(resource?.content ?? '');
-  $done({ content: result.content.split('\n')[0] ?? '' });
+  const [endpoint, password] = (result.content.split('\n')[0] ?? '').split(', ');
+  $done({
+    content: [endpoint, password, 'over-tls=true', 'tag=Parser-Trojan-Minimal']
+      .filter(Boolean)
+      .join(', '),
+  });
 } catch (error) {
   const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
   $done({ content: diagnosticNode(message) });
