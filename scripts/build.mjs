@@ -21,3 +21,4 @@ await build({
 // GitHub Pages serves .js as application/javascript. Quantumult X is more
 // reliable with parser URLs served as text/plain, like GitHub raw URLs.
 await copyFile('dist/resource-parser.js', 'dist/resource-parser.txt');
+await copyFile('dist/resource-parser.js', 'dist/resource-parser-lite.txt');
