@@ -18,23 +18,8 @@ await build({
   target: ['es2017'],
 });
 
-await build({
-  banner: {
-    js: `/* Quantumult X Runtime Diagnostic Parser | Built at ${builtAt} | MIT */`,
-  },
-  bundle: true,
-  entryPoints: ['src/runtime-diagnostic-parser.ts'],
-  format: 'iife',
-  legalComments: 'eof',
-  minify: true,
-  outfile: 'dist/runtime-diagnostic-parser.txt',
-  platform: 'browser',
-  target: ['es2017'],
-});
-
 // GitHub Pages serves .js as application/javascript. Quantumult X is more
 // reliable with parser URLs served as text/plain, like GitHub raw URLs.
 await copyFile('dist/resource-parser.js', 'dist/resource-parser.txt');
 await copyFile('dist/resource-parser.js', 'dist/resource-parser-lite.txt');
 await copyFile('dist/resource-parser.js', 'dist/resource-parser-native.txt');
-await copyFile('src/diagnostic-parser.js', 'dist/diagnostic-parser.txt');
