@@ -22,3 +22,5 @@ await build({
 // reliable with parser URLs served as text/plain, like GitHub raw URLs.
 await copyFile('dist/resource-parser.js', 'dist/resource-parser.txt');
 await copyFile('dist/resource-parser.js', 'dist/resource-parser-lite.txt');
+await copyFile('dist/resource-parser.js', 'dist/resource-parser-native.txt');
+await copyFile('src/diagnostic-parser.js', 'dist/diagnostic-parser.txt');
