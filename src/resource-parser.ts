@@ -1,5 +1,4 @@
 import { convertResource, ResourceParseError } from './index';
-import { encodeBase64Utf8 } from './utils';
 
 interface QuantumultResource {
   readonly content?: string;
@@ -28,7 +27,7 @@ try {
       result.warnings.slice(0, 3).join('\n'),
     );
   }
-  $done({ content: encodeBase64Utf8(result.content) });
+  $done({ content: result.content });
 } catch (error) {
   const message =
     error instanceof ResourceParseError || error instanceof Error ? error.message : '未知错误';

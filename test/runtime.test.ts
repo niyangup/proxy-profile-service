@@ -3,8 +3,6 @@ import vm from 'node:vm';
 import { build } from 'esbuild';
 import { describe, expect, it } from 'vitest';
 
-import { encodeBase64Utf8 } from '../src/utils';
-
 const bundleParser = async (): Promise<string> => {
   const result = await build({
     bundle: true,
@@ -20,13 +18,6 @@ const bundleParser = async (): Promise<string> => {
 };
 
 describe('Quantumult X runtime bundle', () => {
-  it.each(['', 'f', 'fo', 'foo', '中文-🚀', '\ud800'])(
-    'encodes UTF-8 Base64 compatibly for %j',
-    (value) => {
-      expect(encodeBase64Utf8(value)).toBe(Buffer.from(value, 'utf8').toString('base64'));
-    },
-  );
-
   it('reads $resource and returns converted content through $done', async () => {
     const bundle = await bundleParser();
     let content = '';
@@ -47,10 +38,9 @@ describe('Quantumult X runtime bundle', () => {
       },
     });
 
-    const decoded = Buffer.from(content, 'base64').toString('utf8');
-    expect(decoded).toContain('trojan=runtime.example.com:443');
-    expect(decoded).toContain('tls-host=tls.example.com');
-    expect(decoded).toContain('tag=运行时-🚀');
+    expect(content).toContain('trojan=runtime.example.com:443');
+    expect(content).toContain('tls-host=tls.example.com');
+    expect(content).toContain('tag=运行时-🚀');
   });
 
   it('handles a missing $resource without throwing an undeclared-variable error', async () => {
