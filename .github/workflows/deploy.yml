@@ -41,9 +41,9 @@ jobs:
         run: |
           tag="build-${GITHUB_RUN_NUMBER}"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$tag" dist/resource-parser.js dist/resource-parser.txt dist/resource-parser-lite.txt dist/resource-parser-native.txt dist/resource-parser-probe.txt dist/static-probe.txt --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$tag" dist/resource-parser.js dist/resource-parser.txt dist/resource-parser-lite.txt dist/resource-parser-native.txt dist/resource-parser-probe.txt dist/resource-parser-minimal-probe.txt dist/resource-parser-options-probe.txt dist/static-probe.txt dist/runtime-static-probe.txt --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$tag" dist/resource-parser.js dist/resource-parser.txt dist/resource-parser-lite.txt dist/resource-parser-native.txt dist/resource-parser-probe.txt dist/static-probe.txt \
+            gh release create "$tag" dist/resource-parser.js dist/resource-parser.txt dist/resource-parser-lite.txt dist/resource-parser-native.txt dist/resource-parser-probe.txt dist/resource-parser-minimal-probe.txt dist/resource-parser-options-probe.txt dist/static-probe.txt dist/runtime-static-probe.txt \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "Build #${GITHUB_RUN_NUMBER}" \
