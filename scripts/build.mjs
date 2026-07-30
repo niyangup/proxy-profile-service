@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 
-import { build } from 'esbuild';
+import { build, transform } from 'esbuild';
+
+const MAX_OUTPUT_BYTES = 240 * 1024;
 
 await rm('dist', { force: true, recursive: true });
 await mkdir('dist', { recursive: true });
@@ -23,6 +25,12 @@ if (markerIndex < 0 || upstreamSource.indexOf(runtimeMarker, markerIndex + 1) >=
 }
 const helperSource = upstreamSource.slice(0, markerIndex);
 const runtimeSource = upstreamSource.slice(markerIndex);
+const compactRuntime = await transform(runtimeSource, {
+  format: 'esm',
+  legalComments: 'none',
+  minify: true,
+  target: 'es2017',
+});
 
 const result = await build({
   bundle: true,
@@ -42,7 +50,11 @@ if (!nativeBundle) throw new Error('原生解析器 bundle 未生成');
 const banner =
   `/* Quantumult X Resource Parser v0.1.0 | Built at ${builtAt} | ` +
   `Project code: MIT | KOP-XIAO: ${metadata.commit.slice(0, 12)} (see THIRD_PARTY_NOTICES.md) */`;
-const combined = `${banner}\n${helperSource}\n${nativeBundle}\nfunction executeVendoredKop($resource, $parser, $done, $notify) {\n${runtimeSource}\n}\n`;
+const combined = `${banner}\n${helperSource}\n${nativeBundle}\nfunction executeVendoredKop($resource, $parser, $done, $notify) {\n${compactRuntime.code}\n}\n`;
+const outputBytes = Buffer.byteLength(combined);
+if (outputBytes > MAX_OUTPUT_BYTES) {
+  throw new Error(`组合解析器为 ${outputBytes} 字节，超过 ${MAX_OUTPUT_BYTES} 字节的兼容性上限`);
+}
 
 await writeFile('dist/resource-parser.js', combined);
 

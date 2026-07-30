@@ -29,6 +29,7 @@ https://niyangup.github.io/proxy-profile-service/resource-parser.js
 - Preserve the working `.js` output. The `.txt` file is only a compatibility copy.
 - Preserve the single-call guard around `$done`; the vendored KOP source can call its injected callback more than once.
 - Preserve the first KOP callback, not the last one. Later compatibility callbacks can include an empty `info: {}` that causes Quantumult X `Result type error`.
+- Keep the generated combined parser below 240 KiB. The first hybrid build was 266,941 bytes and failed on-device after crossing a suspected 256 KiB execution boundary. The limit is not publicly documented, so retain the regression guard and distinguish the evidence-backed hypothesis from a verified root cause until device testing confirms it.
 
 The prior `Result type error` was resolved by aligning the output and generated script shape with the official API. File extension, GitHub Pages MIME type, the user's YAML, and Trojan fields were not the cause. Read the full incident record in `doc/PROJECT_STATUS.md` before changing the entry point or build format.
 
@@ -74,7 +75,7 @@ Do not commit `dist/`; GitHub Actions builds it from source. Inspect the generat
 - `src/parse-surge.ts`: Surge `[Proxy]` parser.
 - `src/render.ts`: Quantumult X node-line generation.
 - `src/model.ts`: normalized proxy model.
-- `scripts/build.mjs`: assembles the project converter with the pinned KOP helper/runtime and builds `.js`/`.txt`.
+- `scripts/build.mjs`: assembles the project converter with the pinned KOP helper/runtime, compacts only the generated KOP runtime copy, enforces the output-size guard, and builds `.js`/`.txt`.
 - `scripts/sync-kop.mjs`: fetches the latest upstream file by exact commit and updates metadata.
 - `vendor/kop-xiao/resource-parser.js`: byte-for-byte KOP upstream source; never edit it directly.
 - `vendor/kop-xiao/upstream.json`: pinned commit, source URL, and SHA-256.

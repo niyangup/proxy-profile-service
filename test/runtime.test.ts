@@ -57,6 +57,7 @@ beforeAll(() => {
 
 describe('Quantumult X runtime bundle', () => {
   it('uses the top-level script shape from the official parser example', () => {
+    expect(Buffer.byteLength(bundle)).toBeLessThan(240 * 1024);
     expect(bundle).toMatch(/^\/\* Quantumult X Resource Parser .+KOP-XIAO: [0-9a-f]{12}/);
     expect(bundle).not.toContain('"use strict"');
     expect(bundle).not.toMatch(/^\(\(\)\s*=>/);
