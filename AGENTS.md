@@ -21,13 +21,13 @@ https://niyangup.github.io/proxy-profile-service/resource-parser.js
 ## Quantumult X compatibility requirements
 
 - Follow the official resource-parser contract shown in <https://github.com/crossutility/Quantumult-X/blob/master/resource-parser.js>.
-- Preserve native node text with `$done({ content: result.content })` on the project converter's successful no-parameter path.
+- After native conversion, pass the resulting Quantumult X node text to KOP's top-level server path for its final return. This keeps the project's YAML/CONF conversion while using the callback shape verified across KOP resource types.
 - Keep the generated parser as a top-level script.
 - Keep esbuild configured without an IIFE or strict-mode prologue. The current intentional setting is `format: 'esm'` with an entry point that has no exports.
-- Do not add runtime Base64 encoding to the project converter's successful path, or reintroduce `format: 'iife'`, `"use strict"`, or compatibility probe files without new official evidence and real-device verification. KOP's own Base64 behavior is vendored upstream behavior and must not be confused with this rule.
+- Do not add project-owned runtime Base64 encoding, or reintroduce `format: 'iife'`, `"use strict"`, or compatibility probe files without new official evidence and real-device verification. KOP's Base64 output on its server path is vendored upstream behavior and is now also the final return path for natively converted nodes.
 - Do not assume Node.js or browser APIs exist in Quantumult X. Resource-parser scripts cannot perform their own HTTP requests or use persistent storage.
 - Preserve the working `.js` output. The `.txt` file is only a compatibility copy.
-- Call `$done({ content })` directly from the top-level native success path. Do not wrap, alias, capture, guard, or defer `$done`; indirect calls caused `Result type error` across otherwise valid resources on the real device.
+- Do not call `$done` from the native conversion bundle. Hand converted content to the conditional KOP block, which must retain its direct upstream `$done` behavior. The earlier project-owned callback wrappers caused `Result type error` across otherwise valid resources on the real device.
 - Execute the KOP fallback in a conditional top-level block and preserve its direct upstream `$done` behavior. Do not wrap the KOP runtime in a function or intercept its results.
 - Keep the generated combined parser below 240 KiB as a regression guard. A compact 182,036-byte build still failed on-device, so size was ruled out as the sole cause of this incident.
 
@@ -69,7 +69,7 @@ Do not commit `dist/`; GitHub Actions builds it from source. Inspect the generat
 
 ## Architecture and change rules
 
-- `src/resource-parser.ts`: hybrid routing, direct native `$done`, and KOP top-level fallback hand-off.
+- `src/resource-parser.ts`: hybrid routing and KOP top-level server hand-off.
 - `src/index.ts`: input detection and conversion orchestration.
 - `src/parse-clash.ts`: lightweight Clash `proxies:` parser.
 - `src/parse-surge.ts`: Surge `[Proxy]` parser.

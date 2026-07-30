@@ -10,7 +10,6 @@ interface QuantumultResource {
 type Notify = (title: string, subtitle?: string, message?: string, options?: unknown) => void;
 
 declare const $resource: QuantumultResource | undefined;
-declare const $done: (result: { readonly content: string }) => void;
 declare const $notify: Notify | undefined;
 
 // These globals are declared by scripts/build.mjs. Keeping them unbound here
@@ -31,7 +30,6 @@ const notify: Notify = (title, subtitle, message, options): void => {
 const resource = typeof $resource === 'undefined' ? undefined : $resource;
 const source = resource?.content ?? '';
 const isServer = resource?.type === undefined || resource.type === 'server';
-const hasKopParameters = resource?.link?.includes('#') ?? false;
 let nativeHandled = false;
 
 if (isServer && canConvertNatively(source)) {
@@ -45,14 +43,10 @@ if (isServer && canConvertNatively(source)) {
       );
     }
 
-    if (hasKopParameters) {
-      $kopResource = { ...resource, content: result.content };
-      $useKopFallback = true;
-    } else {
-      // Keep this direct top-level call aligned with Quantumult X's official
-      // resource-parser contract. Do not wrap, alias, or defer `$done`.
-      $done({ content: result.content });
-    }
+    // The focused converter owns YAML/CONF parsing, while KOP's proven
+    // top-level server path owns the final Quantumult X callback shape.
+    $kopResource = { ...resource, content: result.content };
+    $useKopFallback = true;
     nativeHandled = true;
   } catch {
     // KOP-XIAO gets the untouched input when the focused native converter cannot handle it.

@@ -66,7 +66,7 @@ describe('Quantumult X runtime bundle', () => {
     expect(bundle).toContain('if ($useKopFallback) {');
   });
 
-  it('keeps the verified native Clash path and installs the KOP parameter helper', () => {
+  it('converts native Clash input before returning it through the KOP server path', () => {
     const runtime = runParser({
       content: `proxies:
   - name: 运行时-🚀
@@ -78,10 +78,12 @@ describe('Quantumult X runtime bundle', () => {
       type: 'server',
     });
 
-    expect(runtime.results).toHaveLength(1);
-    expect(runtime.results[0]?.content).toContain('trojan=runtime.example.com:443');
-    expect(runtime.results[0]?.content).toContain('tls-host=tls.example.com');
-    expect(runtime.results[0]?.content).toContain('tag=运行时-🚀');
+    expect(runtime.results.length).toBeGreaterThan(0);
+    expect(runtime.results[0]).toEqual({ content: expect.any(String) });
+    const decoded = decodeBase64(runtime.results[0]?.content ?? '');
+    expect(decoded).toContain('trojan=runtime.example.com:443');
+    expect(decoded).toContain('tls-host=tls.example.com');
+    expect(decoded).toContain('tag=运行时-🚀');
     expect(runtime.parser.hashSchema).toBeTypeOf('function');
     expect(runtime.parser.hashToUI).toBeTypeOf('function');
     expect(runtime.parser.uiToHash).toBeTypeOf('function');

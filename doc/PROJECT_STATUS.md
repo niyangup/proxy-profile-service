@@ -27,11 +27,10 @@ Quantumult X 自己下载输入资源，将内容放入 `$resource.content`，�
 运行时路由如下：
 
 - `server` + 可识别的 Clash YAML / Surge CONF：先运行自有转换器。
-- 自有转换成功且链接没有 KOP 参数：直接返回原生 Quantumult X 节点文本，保持已经验证过的兼容路径。
-- 自有转换成功且资源链接含 `#` 参数：把自有转换结果交给 KOP，以应用筛选、重命名等参数。
+- 自有转换成功：把生成的 Quantumult X 节点文本交给 KOP 的顶层 server 流程，由 KOP 完成最终返回；链接含 `#` 参数时也会继续应用筛选、重命名等参数。
 - 自有转换失败：把未经修改的原始输入交给 KOP。
 - 其他 `server` 格式以及 `filter`、`rewrite`：直接交给 KOP。
-- 自有成功路径必须在顶层直接调用 `$done({ content })`，不能包装、转存、延迟或改由辅助函数调用。
+- 自有转换 bundle 不直接调用 `$done`；它只把转换结果交给 KOP 的条件顶层块。
 - KOP 回退运行时放在条件顶层代码块中，并保留其原始的直接 `$done` 行为；不能把整个 KOP 运行时放进函数，也不能截获它的回调。
 
 KOP 的 `$parser` 参数助手在脚本顶层注册，因此即使资源走自有转换器，Quantumult X 的参数编辑 UI 仍然可用。
@@ -81,13 +80,7 @@ npm run check
 
 官方资源解析器示例：<https://github.com/crossutility/Quantumult-X/blob/master/resource-parser.js>
 
-自有成功路径必须继续使用：
-
-```js
-$done({ content: result.content });
-```
-
-生成文件仍是顶层经典脚本。esbuild 对自有 TypeScript 使用 `format: 'esm'`，但入口没有导出，因此不会生成模块导出、严格模式前导或 IIFE。构建时将 KOP 的参数助手留在顶层，并把 KOP 运行时放入仅在需要回退时执行的顶层条件代码块；不使用函数包装。
+生成文件仍是顶层经典脚本。esbuild 对自有 TypeScript 使用 `format: 'esm'`，但入口没有导出，因此不会生成模块导出、严格模式前导或 IIFE。构建时将 KOP 的参数助手留在顶层，并把 KOP 运行时放入需要返回资源时执行的顶层条件代码块；不使用函数包装。自有转换器只负责把 YAML/CONF 转成原生 Quantumult X 节点行，最终由 KOP 的顶层 server 流程直接调用 `$done`。
 
 构建只对最终产物中的 KOP 运行时副本做压缩；`vendor/kop-xiao/resource-parser.js` 仍保持上游原始字节。最终组合文件有 240 KiB 硬性上限，防止再次接近移动端脚本加载边界。压缩不能生成严格模式、IIFE 或模块导出。
 
@@ -97,10 +90,10 @@ $done({ content: result.content });
 
 因此：
 
-- 不要给自有成功路径重新加入 Base64。
+- 不要在自有代码中实现运行时 Base64；server 结果的 Base64 返回由未经修改的 KOP 上游流程负责。
 - 不要改回 `format: 'iife'` 或严格模式前导。
 - 不要把文件扩展名、GitHub Pages MIME、用户 YAML 或 Trojan 字段误判为当时的原因。
-- KOP 自己在部分服务器路径返回 Base64 是它既有的上游行为，与自有成功路径的兼容约束分开管理。
+- KOP 在 server 路径返回 Base64 是它既有的上游行为；自有转换器不重复实现编码，只把原生节点文本交给该路径。
 
 ## 6. 已验证状态
 
@@ -128,9 +121,9 @@ $done({ content: result.content });
 
 继续排查发现：KOP 原文件为 250,290 字节，首次组合产物为 266,941 字节，刚好越过 256 KiB。版本 `e860dcf` 将产物压缩到 182,036 字节，但在用户真机刷新解析器后，`westdata` 仍然立即报相同错误，因此体积不是此次故障的唯一根因。240 KiB 构建上限继续保留作为体积回归保护，但不能再把它写成已确认原因。
 
-通过 iPhone 镜像复测确认，三个不同资源的公共失败点是合并版间接调用 `$done`：自有路径通过 `doneOnce` 调用，KOP 路径先截获结果再调用。Node VM 中这种调用等价，但它偏离了官方示例和本项目此前真机成功的“顶层直接 `$done({ content })`”形态。下一版改为自有路径直接调用，并让 KOP 在条件顶层块内按上游方式执行。该判断仍需新版本真机结果最终确认。
+通过 iPhone 镜像复测确认，三个不同资源的公共失败点是合并版间接调用 `$done`：自有路径通过 `doneOnce` 调用，KOP 路径先截获结果再调用。Node VM 中这种调用等价，但它偏离了官方示例。版本 `31ed531` 恢复 KOP 在条件顶层块内直接回调后，用户真机确认 `filter` 和 `rewrite` 已正常；但自有 server 路径继续直接返回相同的 61 行原生节点文本时，`westdata3` 仍报 `Result type error`。安全对比确认该文本与历史真机成功版本逐字节一致，因此下一版将自有转换结果交给 KOP 的顶层 server 流程，由它统一完成最终返回。该 server 修复仍需新版本真机确认。
 
-混合版本发布后仍需要用户做一次聚焦真机验证：原有 YAML、一个分流资源和一个重写资源。不要把“Node VM 测试通过”写成“Quantumult X 真机已验证”。
+`31ed531` 的分流和重写已经由用户真机确认。下一版发布后只需聚焦验证原有 YAML 节点资源 `westdata3`。不要把“Node VM 测试通过”写成“Quantumult X 真机已验证”。
 
 ## 7. 自有转换器支持范围
 
@@ -149,7 +142,7 @@ KOP 宣称的广泛格式和参数能力属于 vendored 上游能力；本项目
 ## 8. 代码结构
 
 ```text
-src/resource-parser.ts                 混合路由、原生直接 $done 和 KOP 顶层回退信号
+src/resource-parser.ts                 混合路由与 KOP 顶层 server 交接信号
 src/index.ts                           自有格式识别与转换编排
 src/parse-clash.ts                     Clash proxies 轻量解析
 src/parse-surge.ts                     Surge [Proxy] 解析
