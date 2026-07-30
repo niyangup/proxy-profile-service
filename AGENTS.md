@@ -102,3 +102,13 @@ After a runtime change:
 4. Request one focused Quantumult X real-device test only when local verification cannot establish runtime compatibility.
 
 Update `doc/PROJECT_STATUS.md` whenever a change materially affects the project's purpose, public URLs, supported formats or protocols, compatibility decisions, deployment, verified state, privacy constraints, or recommended next steps.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+This repository uses a single-context domain documentation layout. See `docs/agents/domain.md`.
