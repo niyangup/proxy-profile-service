@@ -32,6 +32,7 @@ Quantumult X 自己下载输入资源，将内容放入 `$resource.content`，�
 - 自有转换失败：把未经修改的原始输入交给 KOP。
 - 其他 `server` 格式以及 `filter`、`rewrite`：直接交给 KOP。
 - 组合层捕获 KOP 内部的多次 `$done`，最终只向 Quantumult X 调用一次 `$done`。
+- KOP 的第一份回调是可执行结果；后续兼容回调可能附带空的 `info: {}`，必须忽略，不能用最后一次覆盖第一份。
 
 KOP 的 `$parser` 参数助手在脚本顶层注册，因此即使资源走自有转换器，Quantumult X 的参数编辑 UI 仍然可用。
 
@@ -120,6 +121,8 @@ $done({ content: result.content });
 - 所有路径对全局 `$done` 恰好调用一次。
 - vendor 文件 SHA-256 与元数据一致。
 - 生成文件的顶层形态、版权头、上游提交 banner 和无模块导出约束。
+
+混合版本 `4bf96c6` 首次发布后，用户真机反馈很多 KOP 路径出现 `Result type error`。根因是组合层保留了 KOP 的最后一次回调；该兼容回调默认包含空的 `info: {}`，不符合 Quantumult X 对 `info` 的结果类型要求。修复策略是保留 KOP 的第一份有效结果，同时继续保证全局 `$done` 只调用一次。运行时测试必须断言普通 KOP、filter 和 rewrite 结果只有 `content`，避免空 `info` 回归。
 
 混合版本发布后仍需要用户做一次聚焦真机验证：原有 YAML、一个分流资源和一个重写资源。不要把“Node VM 测试通过”写成“Quantumult X 真机已验证”。
 

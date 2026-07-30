@@ -28,6 +28,7 @@ https://niyangup.github.io/proxy-profile-service/resource-parser.js
 - Do not assume Node.js or browser APIs exist in Quantumult X. Resource-parser scripts cannot perform their own HTTP requests or use persistent storage.
 - Preserve the working `.js` output. The `.txt` file is only a compatibility copy.
 - Preserve the single-call guard around `$done`; the vendored KOP source can call its injected callback more than once.
+- Preserve the first KOP callback, not the last one. Later compatibility callbacks can include an empty `info: {}` that causes Quantumult X `Result type error`.
 
 The prior `Result type error` was resolved by aligning the output and generated script shape with the official API. File extension, GitHub Pages MIME type, the user's YAML, and Trojan fields were not the cause. Read the full incident record in `doc/PROJECT_STATUS.md` before changing the entry point or build format.
 

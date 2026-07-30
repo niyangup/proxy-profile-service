@@ -50,7 +50,10 @@ const runKopParser = (resource: QuantumultResource | undefined, parser: ParserHe
       resource,
       parser,
       (result) => {
-        capturedResult = result;
+        // KOP can call its callback multiple times. Its first result is the
+        // actionable parser response; a later compatibility callback may add
+        // an empty `info: {}`, which Quantumult X rejects as an invalid type.
+        capturedResult ??= result;
       },
       notify,
     );

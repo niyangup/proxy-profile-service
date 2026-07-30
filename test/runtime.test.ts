@@ -92,6 +92,7 @@ describe('Quantumult X runtime bundle', () => {
     const runtime = runParser({ content: shareLink, type: 'server' });
 
     expect(runtime.results).toHaveLength(1);
+    expect(runtime.results[0]).toEqual({ content: expect.any(String) });
     const decoded = decodeBase64(runtime.results[0]?.content ?? '');
     expect(decoded).toContain('shadowsocks=ss.example.com:443');
     expect(decoded).toContain('tag=Fallback');
@@ -105,6 +106,7 @@ describe('Quantumult X runtime bundle', () => {
     });
 
     expect(runtime.results).toHaveLength(1);
+    expect(runtime.results[0]).toEqual({ content: expect.any(String) });
     const decoded = decodeBase64(runtime.results[0]?.content ?? '');
     expect(decoded).toContain('trojan=anchor.example.com:443');
     expect(decoded).toContain('tag=Anchored');
@@ -123,6 +125,7 @@ describe('Quantumult X runtime bundle', () => {
     });
 
     expect(runtime.results).toHaveLength(1);
+    expect(runtime.results[0]).toEqual({ content: expect.any(String) });
     const decoded = decodeBase64(runtime.results[0]?.content ?? '');
     expect(decoded).toContain('trojan=native.example.com:443');
     expect(decoded).toContain('tag=Changed');
@@ -139,8 +142,10 @@ describe('Quantumult X runtime bundle', () => {
     });
 
     expect(filter.results).toHaveLength(1);
+    expect(filter.results[0]).toEqual({ content: 'host-SUFFIX, example.com, Proxy' });
     expect(filter.results[0]?.content).toBe('host-SUFFIX, example.com, Proxy');
     expect(rewrite.results).toHaveLength(1);
+    expect(rewrite.results[0]).toEqual({ content: 'https://example\\.com/v1 url reject' });
     expect(rewrite.results[0]?.content).toBe('https://example\\.com/v1 url reject');
   });
 
