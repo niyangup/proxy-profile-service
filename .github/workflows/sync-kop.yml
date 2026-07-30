@@ -1,0 +1,51 @@
+name: Sync KOP-XIAO parser
+
+on:
+  schedule:
+    - cron: '23 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-kop-xiao
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Download the latest upstream parser
+        run: npm run sync:kop
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Verify the combined parser
+        id: verify
+        continue-on-error: true
+        run: npm run check
+      - name: Create update pull request
+        if: always()
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automation/sync-kop-xiao
+          delete-branch: true
+          commit-message: 'chore: sync KOP-XIAO resource parser'
+          title: 'chore: sync KOP-XIAO resource parser'
+          body: |
+            Automated update of the vendored KOP-XIAO resource parser.
+
+            The source commit and SHA-256 are recorded in `vendor/kop-xiao/upstream.json`.
+            Verification result for `npm run check`: `${{ steps.verify.outcome }}`.
+
+            Always review upstream changes and the verification result before merging.
+      - name: Fail when verification failed
+        if: steps.verify.outcome == 'failure'
+        run: exit 1

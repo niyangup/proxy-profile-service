@@ -11,5 +11,12 @@
   "proseWrap": "preserve",
   "sortImports": true,
   "sortPackageJson": true,
-  "ignorePatterns": ["dist/**", "coverage/**", "node_modules/**", "package-lock.json"]
+  "ignorePatterns": [
+    ".agents/**",
+    "dist/**",
+    "coverage/**",
+    "node_modules/**",
+    "package-lock.json",
+    "vendor/kop-xiao/**"
+  ]
 }

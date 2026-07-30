@@ -1,37 +1,100 @@
-import { convertResource, ResourceParseError } from './index';
+import { canConvertNatively, convertResource } from './index';
 
 interface QuantumultResource {
   readonly content?: string;
+  readonly link?: string;
   readonly type?: string;
+  readonly [key: string]: unknown;
 }
 
-declare const $resource: QuantumultResource | undefined;
-declare const $done: (result: { readonly content: string }) => void;
-declare const $notify: ((title: string, subtitle?: string, message?: string) => void) | undefined;
+interface QuantumultResult {
+  readonly content?: string;
+  readonly info?: unknown;
+  readonly retry?: unknown;
+  readonly [key: string]: unknown;
+}
 
-const notify = (title: string, subtitle: string, message: string): void => {
-  if (typeof $notify === 'function') $notify(title, subtitle, message);
+type ParserHelper = Record<string, unknown>;
+type Done = (result: QuantumultResult) => void;
+type Notify = (title: string, subtitle?: string, message?: string, options?: unknown) => void;
+
+declare const $resource: QuantumultResource | undefined;
+declare const $done: Done;
+declare const $notify: Notify | undefined;
+declare const $parser: ParserHelper;
+declare const executeVendoredKop: (
+  resource: QuantumultResource | undefined,
+  parser: ParserHelper,
+  done: Done,
+  notify: Notify,
+) => void;
+
+const notify: Notify = (title, subtitle, message, options): void => {
+  if (typeof $notify === 'function') $notify(title, subtitle, message, options);
 };
 
-try {
-  const resource = typeof $resource === 'undefined' ? undefined : $resource;
-  if (resource?.type && resource.type !== 'server') {
-    throw new ResourceParseError('请将远程资源类型设置为 server');
-  }
-  const source = resource?.content ?? '';
-  const result = convertResource(source);
-  if (result.skippedNodes > 0) {
-    notify(
-      'Quantumult X 资源解析完成',
-      `已转换 ${result.convertedNodes} 个节点，跳过 ${result.skippedNodes} 个`,
-      result.warnings.slice(0, 3).join('\n'),
+let doneCalled = false;
+const doneOnce: Done = (result): void => {
+  if (doneCalled) return;
+  doneCalled = true;
+  $done(result);
+};
+
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : '未知错误';
+
+const runKopParser = (resource: QuantumultResource | undefined, parser: ParserHelper): void => {
+  let capturedResult: QuantumultResult | undefined;
+  try {
+    executeVendoredKop(
+      resource,
+      parser,
+      (result) => {
+        capturedResult = result;
+      },
+      notify,
     );
+  } catch (error) {
+    notify('Quantumult X 资源解析失败', 'KOP-XIAO 回退解析器执行失败', errorMessage(error));
   }
-  // Quantumult X's official resource-parser example returns native node lines.
-  $done({ content: result.content });
-} catch (error) {
-  const message =
-    error instanceof ResourceParseError || error instanceof Error ? error.message : '未知错误';
-  notify('Quantumult X 资源解析失败', '', message);
-  $done({ content: '' });
+
+  if (capturedResult) {
+    doneOnce(capturedResult);
+  } else {
+    doneOnce({ content: '' });
+  }
+};
+
+const resource = typeof $resource === 'undefined' ? undefined : $resource;
+const parser = typeof $parser === 'undefined' ? {} : $parser;
+const source = resource?.content ?? '';
+const isServer = resource?.type === undefined || resource.type === 'server';
+const hasKopParameters = resource?.link?.includes('#') ?? false;
+let nativeHandled = false;
+
+if (isServer && canConvertNatively(source)) {
+  try {
+    const result = convertResource(source);
+    if (result.skippedNodes > 0) {
+      notify(
+        'Quantumult X 资源解析完成',
+        `已转换 ${result.convertedNodes} 个节点，跳过 ${result.skippedNodes} 个`,
+        result.warnings.slice(0, 3).join('\n'),
+      );
+    }
+
+    if (hasKopParameters) {
+      runKopParser({ ...resource, content: result.content }, parser);
+    } else {
+      // Quantumult X's official resource-parser example returns native node lines.
+      doneOnce({ content: result.content });
+    }
+    nativeHandled = true;
+  } catch {
+    // KOP-XIAO gets the untouched input when the focused native converter cannot handle it.
+  }
+}
+
+if (!nativeHandled) {
+  runKopParser(resource, parser);
 }

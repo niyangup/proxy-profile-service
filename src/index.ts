@@ -5,6 +5,9 @@ import { parseSurge } from './parse-surge';
 import { renderNode } from './render';
 import { isInfoNode, MAX_NODES, MAX_SOURCE_BYTES, utf8ByteLength } from './utils';
 
+export const canConvertNatively = (source: string): boolean =>
+  /^\s*\[Proxy\]\s*$/im.test(source) || /(?:^|\n)\s*(?:proxies|"proxies")\s*:/i.test(source);
+
 const detectFormat = (source: string): SourceFormat => {
   if (/^\s*\[Proxy\]\s*$/im.test(source)) return 'surge';
   if (/(?:^|\n)\s*(?:proxies|"proxies")\s*:/i.test(source)) return 'clash';
