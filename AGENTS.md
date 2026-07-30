@@ -27,9 +27,9 @@ https://niyangup.github.io/proxy-profile-service/resource-parser.js
 - Do not add runtime Base64 encoding to the project converter's successful path, or reintroduce `format: 'iife'`, `"use strict"`, or compatibility probe files without new official evidence and real-device verification. KOP's own Base64 behavior is vendored upstream behavior and must not be confused with this rule.
 - Do not assume Node.js or browser APIs exist in Quantumult X. Resource-parser scripts cannot perform their own HTTP requests or use persistent storage.
 - Preserve the working `.js` output. The `.txt` file is only a compatibility copy.
-- Preserve the single-call guard around `$done`; the vendored KOP source can call its injected callback more than once.
-- Preserve the first KOP callback, not the last one. Later compatibility callbacks can include an empty `info: {}` that causes Quantumult X `Result type error`.
-- Keep the generated combined parser below 240 KiB. The first hybrid build was 266,941 bytes and failed on-device after crossing a suspected 256 KiB execution boundary. The limit is not publicly documented, so retain the regression guard and distinguish the evidence-backed hypothesis from a verified root cause until device testing confirms it.
+- Call `$done({ content })` directly from the top-level native success path. Do not wrap, alias, capture, guard, or defer `$done`; indirect calls caused `Result type error` across otherwise valid resources on the real device.
+- Execute the KOP fallback in a conditional top-level block and preserve its direct upstream `$done` behavior. Do not wrap the KOP runtime in a function or intercept its results.
+- Keep the generated combined parser below 240 KiB as a regression guard. A compact 182,036-byte build still failed on-device, so size was ruled out as the sole cause of this incident.
 
 The prior `Result type error` was resolved by aligning the output and generated script shape with the official API. File extension, GitHub Pages MIME type, the user's YAML, and Trojan fields were not the cause. Read the full incident record in `doc/PROJECT_STATUS.md` before changing the entry point or build format.
 
@@ -69,7 +69,7 @@ Do not commit `dist/`; GitHub Actions builds it from source. Inspect the generat
 
 ## Architecture and change rules
 
-- `src/resource-parser.ts`: hybrid routing, KOP delegation, and single-call Quantumult X entry point.
+- `src/resource-parser.ts`: hybrid routing, direct native `$done`, and KOP top-level fallback hand-off.
 - `src/index.ts`: input detection and conversion orchestration.
 - `src/parse-clash.ts`: lightweight Clash `proxies:` parser.
 - `src/parse-surge.ts`: Surge `[Proxy]` parser.
@@ -86,7 +86,7 @@ When adding a protocol or input feature, update the model, parser, renderer, and
 
 The Clash parser is intentionally lightweight rather than a full YAML dependency. Prefer a focused extension with tests over adding a large runtime package. The prior third-party investigation found that `sub-store-convert` could work but produced an approximately 571 KB bundle, introduced runtime risk, and had unresolved upstream AGPL licensing considerations. Review `doc/PROJECT_STATUS.md` before introducing any conversion dependency.
 
-Do not patch the KOP vendor file. Project-specific behavior belongs in `src/` or the build wrapper. Run `npm run sync:kop` to update upstream. Automated updates must remain reviewable PRs, preserve the upstream copyright header, pass the full check, and never be auto-merged. The vendored KOP file is included under direct permission reported by the repository owner and is not represented as MIT-licensed project code.
+Do not patch the KOP vendor file. Project-specific behavior belongs in `src/` or the build assembly. Run `npm run sync:kop` to update upstream. Automated updates must remain reviewable PRs, preserve the upstream copyright header, pass the full check, and never be auto-merged. The vendored KOP file is included under direct permission reported by the repository owner and is not represented as MIT-licensed project code.
 
 ## Deployment and documentation
 

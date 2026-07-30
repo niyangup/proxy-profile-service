@@ -7,69 +7,28 @@ interface QuantumultResource {
   readonly [key: string]: unknown;
 }
 
-interface QuantumultResult {
-  readonly content?: string;
-  readonly info?: unknown;
-  readonly retry?: unknown;
-  readonly [key: string]: unknown;
-}
-
-type ParserHelper = Record<string, unknown>;
-type Done = (result: QuantumultResult) => void;
 type Notify = (title: string, subtitle?: string, message?: string, options?: unknown) => void;
 
 declare const $resource: QuantumultResource | undefined;
-declare const $done: Done;
+declare const $done: (result: { readonly content: string }) => void;
 declare const $notify: Notify | undefined;
-declare const $parser: ParserHelper;
-declare const executeVendoredKop: (
-  resource: QuantumultResource | undefined,
-  parser: ParserHelper,
-  done: Done,
-  notify: Notify,
-) => void;
+
+// These globals are declared by scripts/build.mjs. Keeping them unbound here
+// prevents esbuild from renaming the hand-off between the native bundle and
+// the conditionally appended KOP runtime.
+declare let $kopResource: QuantumultResource | undefined;
+declare let $useKopFallback: boolean;
+
+// Mark the build-assembly globals as read in this module as well as assigned.
+// esbuild removes these side-effect-free expressions from the final bundle.
+void $kopResource;
+void $useKopFallback;
 
 const notify: Notify = (title, subtitle, message, options): void => {
   if (typeof $notify === 'function') $notify(title, subtitle, message, options);
 };
 
-let doneCalled = false;
-const doneOnce: Done = (result): void => {
-  if (doneCalled) return;
-  doneCalled = true;
-  $done(result);
-};
-
-const errorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : '未知错误';
-
-const runKopParser = (resource: QuantumultResource | undefined, parser: ParserHelper): void => {
-  let capturedResult: QuantumultResult | undefined;
-  try {
-    executeVendoredKop(
-      resource,
-      parser,
-      (result) => {
-        // KOP can call its callback multiple times. Its first result is the
-        // actionable parser response; a later compatibility callback may add
-        // an empty `info: {}`, which Quantumult X rejects as an invalid type.
-        capturedResult ??= result;
-      },
-      notify,
-    );
-  } catch (error) {
-    notify('Quantumult X 资源解析失败', 'KOP-XIAO 回退解析器执行失败', errorMessage(error));
-  }
-
-  if (capturedResult) {
-    doneOnce(capturedResult);
-  } else {
-    doneOnce({ content: '' });
-  }
-};
-
 const resource = typeof $resource === 'undefined' ? undefined : $resource;
-const parser = typeof $parser === 'undefined' ? {} : $parser;
 const source = resource?.content ?? '';
 const isServer = resource?.type === undefined || resource.type === 'server';
 const hasKopParameters = resource?.link?.includes('#') ?? false;
@@ -87,10 +46,12 @@ if (isServer && canConvertNatively(source)) {
     }
 
     if (hasKopParameters) {
-      runKopParser({ ...resource, content: result.content }, parser);
+      $kopResource = { ...resource, content: result.content };
+      $useKopFallback = true;
     } else {
-      // Quantumult X's official resource-parser example returns native node lines.
-      doneOnce({ content: result.content });
+      // Keep this direct top-level call aligned with Quantumult X's official
+      // resource-parser contract. Do not wrap, alias, or defer `$done`.
+      $done({ content: result.content });
     }
     nativeHandled = true;
   } catch {
@@ -99,5 +60,6 @@ if (isServer && canConvertNatively(source)) {
 }
 
 if (!nativeHandled) {
-  runKopParser(resource, parser);
+  $kopResource = resource;
+  $useKopFallback = true;
 }

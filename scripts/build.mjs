@@ -50,7 +50,7 @@ if (!nativeBundle) throw new Error('原生解析器 bundle 未生成');
 const banner =
   `/* Quantumult X Resource Parser v0.1.0 | Built at ${builtAt} | ` +
   `Project code: MIT | KOP-XIAO: ${metadata.commit.slice(0, 12)} (see THIRD_PARTY_NOTICES.md) */`;
-const combined = `${banner}\n${helperSource}\n${nativeBundle}\nfunction executeVendoredKop($resource, $parser, $done, $notify) {\n${compactRuntime.code}\n}\n`;
+const combined = `${banner}\n${helperSource}\nvar $kopResource;\nvar $useKopFallback = false;\n${nativeBundle}\nif ($useKopFallback) {\nlet $resource = $kopResource;\n${compactRuntime.code}\n}\n`;
 const outputBytes = Buffer.byteLength(combined);
 if (outputBytes > MAX_OUTPUT_BYTES) {
   throw new Error(`组合解析器为 ${outputBytes} 字节，超过 ${MAX_OUTPUT_BYTES} 字节的兼容性上限`);
